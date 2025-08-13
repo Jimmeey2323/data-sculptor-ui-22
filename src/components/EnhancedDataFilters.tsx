@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ProcessedData } from '@/types/data';
 import { FilterOptions, getUniqueValues } from '@/utils/filterUtils';
 import { Search, Filter, X, Calendar, Users, MapPin, Clock, BookOpen, RotateCcw } from 'lucide-react';
-import { DatePickerWithRange } from './DateRangePicker';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 
 interface EnhancedDataFiltersProps {
   data: ProcessedData[];
