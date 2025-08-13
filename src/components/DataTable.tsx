@@ -108,7 +108,10 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
         key: `flat-${data.indexOf(item)}`,
         isChild: true,
         // Set totalOccurrences to 1 for flat view
-        totalOccurrences: 1
+        totalOccurrences: 1,
+        // Recalculate averages for individual rows
+        classAverageIncludingEmpty: item.totalCheckins / 1,
+        classAverageExcludingEmpty: item.totalCheckins > 0 ? item.totalCheckins / 1 : 0
       }));
     }
     
@@ -140,11 +143,14 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
         };
       }
       
-      // Add to children array
+      // Add to children array with corrected values for individual rows
       groups[groupKey].children.push({
         ...item,
         // Individual rows in grouped view should show 1 for totalOccurrences
-        totalOccurrences: 1
+        totalOccurrences: 1,
+        // Recalculate averages for individual rows (always 1 occurrence)
+        classAverageIncludingEmpty: item.totalCheckins,
+        classAverageExcludingEmpty: item.totalCheckins > 0 ? item.totalCheckins : 0
       });
       
       // Update metrics - sum up the original totalOccurrences for the group
@@ -444,71 +450,70 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
   };
   
   return (
-    <div className="p-6">
-      <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+    <div className="p-6 bg-gradient-to-br from-background via-background to-muted/20">
+      {/* Modern Header Section */}
+      <div className="flex flex-wrap items-center justify-between mb-8 gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchTerm}
             onChange={handleSearchChange}
-            placeholder="Search in table..."
-            className="pl-9 w-full max-w-sm"
+            placeholder="Search classes, trainers, locations..."
+            className="pl-9 w-full max-w-sm bg-background/80 backdrop-blur-sm border-border/50 shadow-sm focus:ring-2 focus:ring-primary/20"
           />
         </div>
         
         <div className="flex flex-wrap gap-3">
-          {/* Grouping Options */}
+          {/* Enhanced Controls with modern styling */}
           <Select value={groupBy} onValueChange={setGroupBy}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] bg-background/80 backdrop-blur-sm border-border/50 shadow-sm">
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
+                <Filter className="h-4 w-4 text-primary" />
                 <SelectValue placeholder="Group By" />
               </div>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background/95 backdrop-blur-md border-border/50">
               <SelectGroup>
-                <SelectLabel>Grouping Options</SelectLabel>
+                <SelectLabel className="text-muted-foreground font-medium">Grouping Options</SelectLabel>
                 {groupingOptions.map(option => (
-                  <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+                  <SelectItem key={option.id} value={option.id} className="focus:bg-primary/10">{option.label}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
           
-          {/* View Mode */}
           <Select value={viewMode} onValueChange={setViewMode}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[160px] bg-background/80 backdrop-blur-sm border-border/50 shadow-sm">
               <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 text-primary" />
                 <SelectValue placeholder="View Mode" />
               </div>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background/95 backdrop-blur-md border-border/50">
               <SelectGroup>
-                <SelectLabel>View Mode</SelectLabel>
+                <SelectLabel className="text-muted-foreground font-medium">View Mode</SelectLabel>
                 {viewModes.map(mode => (
-                  <SelectItem key={mode.id} value={mode.id}>{mode.label}</SelectItem>
+                  <SelectItem key={mode.id} value={mode.id} className="focus:bg-primary/10">{mode.label}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
           
-          {/* Table View */}
           <Tabs value={tableView} onValueChange={setTableView} className="w-[180px]">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="grouped">Grouped</TabsTrigger>
-              <TabsTrigger value="flat">Flat</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-muted/50 backdrop-blur-sm">
+              <TabsTrigger value="grouped" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Grouped</TabsTrigger>
+              <TabsTrigger value="flat" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Flat</TabsTrigger>
             </TabsList>
           </Tabs>
           
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="flex items-center gap-1.5 bg-background/80 backdrop-blur-sm border-border/50 shadow-sm hover:bg-primary/5">
                 <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Customize Table</span>
+                <span className="hidden sm:inline">Customize</span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="bg-background/95 backdrop-blur-md border-border/50">
               <DialogHeader>
                 <DialogTitle>Table Customization</DialogTitle>
               </DialogHeader>
@@ -570,40 +575,42 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
             </DialogContent>
           </Dialog>
           
-          <Button variant="outline" size="sm" onClick={exportCSV}>
+          <Button variant="outline" size="sm" onClick={exportCSV} className="bg-background/80 backdrop-blur-sm border-border/50 shadow-sm hover:bg-primary/5">
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
         </div>
       </div>
       
-      <div className="border rounded-md overflow-hidden">
+      {/* Modern Table Container */}
+      <div className="border border-border/50 rounded-xl overflow-hidden bg-background/50 backdrop-blur-sm shadow-lg">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/30 backdrop-blur-sm border-border/50 hover:bg-muted/40">
                 {tableView === "grouped" && groupBy !== "none" && (
-                  <TableHead className="w-[30px]"></TableHead>
+                  <TableHead className="w-[30px] border-r border-border/30"></TableHead>
                 )}
                 {visibleColumns.map(column => (
                   <TableHead 
                     key={column.key}
                     className={cn(
-                      "py-3 px-4",
-                      column.numeric ? "text-right" : "text-left"
+                      "py-4 px-6 font-semibold text-foreground/90 border-r border-border/30 last:border-r-0",
+                      column.numeric ? "text-right" : "text-left",
+                      "hover:bg-muted/50 transition-colors cursor-pointer"
                     )}
                     onClick={() => requestSort(column.key)}
                   >
                     <div className={cn(
-                      "flex items-center gap-1.5 cursor-pointer",
+                      "flex items-center gap-2",
                       column.numeric ? "justify-end" : "justify-start"
                     )}>
                       {!column.numeric && column.iconComponent && (
-                        <span className="text-muted-foreground">{column.iconComponent}</span>
+                        <span className="text-primary/70">{column.iconComponent}</span>
                       )}
-                      <span>{column.label}</span>
+                      <span className="select-none">{column.label}</span>
                       {column.numeric && column.iconComponent && (
-                        <span className="text-muted-foreground">{column.iconComponent}</span>
+                        <span className="text-primary/70">{column.iconComponent}</span>
                       )}
                       {getSortIndicator(column.key)}
                     </div>
@@ -615,22 +622,23 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
               {paginatedGroups.length > 0 ? (
                 paginatedGroups.map((group: any) => (
                   <React.Fragment key={group.key}>
-                    {/* Parent row */}
+                    {/* Enhanced Parent Row */}
                     <TableRow 
                       className={cn(
-                        "cursor-pointer hover:bg-muted/50",
-                        expandedRows[group.key] && "bg-muted/30"
+                        "cursor-pointer hover:bg-primary/5 transition-all duration-200 border-border/30",
+                        expandedRows[group.key] && "bg-primary/10 shadow-sm",
+                        "group"
                       )}
                       onClick={() => toggleRowExpansion(group.key)}
                       style={{ height: `${rowHeight}px` }}
                     >
                       {tableView === "grouped" && groupBy !== "none" && (
-                        <TableCell className="py-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
+                        <TableCell className="py-2 border-r border-border/30">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-primary/20 transition-colors">
                             {expandedRows[group.key] ? (
-                              <ChevronDown className="h-4 w-4" />
+                              <ChevronDown className="h-4 w-4 text-primary" />
                             ) : (
-                              <ChevronRight className="h-4 w-4" />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                             )}
                           </Button>
                         </TableCell>
@@ -640,15 +648,17 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                         if (column.key === 'teacherName') {
                           return (
                             <TableCell key={column.key} className={cn(
-                              "py-2", 
+                              "py-3 px-6 border-r border-border/30 last:border-r-0", 
                               column.numeric ? "text-right" : "text-left"
                             )}>
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 ring-2 ring-primary/20">
                                   <AvatarImage src={trainerAvatars[group.teacherName]} />
-                                  <AvatarFallback>{group.teacherName?.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                                    {group.teacherName?.charAt(0)}
+                                  </AvatarFallback>
                                 </Avatar>
-                                {group.teacherName}
+                                <span className="font-medium text-foreground">{group.teacherName}</span>
                               </div>
                             </TableCell>
                           );
@@ -657,14 +667,14 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                         if (column.key === 'cleanedClass' && tableView === 'grouped') {
                           return (
                             <TableCell key={column.key} className={cn(
-                              "py-2", 
+                              "py-3 px-6 border-r border-border/30 last:border-r-0", 
                               column.numeric ? "text-right" : "text-left"
                             )}>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="font-normal">
+                              <div className="flex items-center gap-3">
+                                <Badge variant="secondary" className="font-medium bg-primary/10 text-primary border-primary/20">
                                   {group.children?.length || 0}
                                 </Badge>
-                                {group.cleanedClass}
+                                <span className="font-medium">{group.cleanedClass}</span>
                               </div>
                             </TableCell>
                           );
@@ -674,26 +684,33 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                           const value = group[column.key];
                           return (
                             <TableCell key={column.key} className={cn(
-                              "py-2", 
+                              "py-3 px-6 border-r border-border/30 last:border-r-0", 
                               column.numeric ? "text-right" : "text-left"
                             )}>
-                              {typeof value === 'number' ? value.toFixed(1) : value}
+                              <span className="font-mono text-sm">
+                                {typeof value === 'number' ? value.toFixed(1) : value}
+                              </span>
                             </TableCell>
                           );
                         }
                         
                         return (
                           <TableCell key={column.key} className={cn(
-                            "py-2", 
+                            "py-3 px-6 border-r border-border/30 last:border-r-0", 
                             column.numeric ? "text-right" : "text-left"
                           )}>
-                            {formatCellValue(column.key, group[column.key])}
+                            <span className={cn(
+                              column.numeric && "font-mono text-sm",
+                              column.currency && "text-green-600 dark:text-green-400 font-medium"
+                            )}>
+                              {formatCellValue(column.key, group[column.key])}
+                            </span>
                           </TableCell>
                         );
                       })}
                     </TableRow>
                     
-                    {/* Child rows */}
+                    {/* Enhanced Child Rows with Animation */}
                     {group.children && expandedRows[group.key] && (
                       <AnimatePresence>
                         {group.children.map((item: ProcessedData, index: number) => (
@@ -701,27 +718,34 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                             key={`${group.key}-child-${index}`}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="bg-muted/10 text-sm"
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2, delay: index * 0.05 }}
+                            className="bg-muted/20 text-sm border-border/20 hover:bg-muted/30 transition-colors"
                             style={{ height: `${rowHeight}px` }}
                           >
                             {tableView === "grouped" && groupBy !== "none" && (
-                              <TableCell></TableCell>
+                              <TableCell className="border-r border-border/20">
+                                <div className="w-6 h-6 flex items-center justify-center">
+                                  <div className="w-2 h-2 rounded-full bg-primary/40"></div>
+                                </div>
+                              </TableCell>
                             )}
                             
                             {visibleColumns.map(column => {
                               if (column.key === 'teacherName') {
                                 return (
                                   <TableCell key={`child-${column.key}`} className={cn(
-                                    "py-2 pl-10", 
+                                    "py-2 px-6 pl-12 border-r border-border/20 last:border-r-0", 
                                     column.numeric ? "text-right" : "text-left"
                                   )}>
                                     <div className="flex items-center gap-2">
-                                      <Avatar className="h-5 w-5">
+                                      <Avatar className="h-6 w-6 ring-1 ring-primary/20">
                                         <AvatarImage src={trainerAvatars[item.teacherName]} />
-                                        <AvatarFallback>{item.teacherName?.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback className="bg-primary/5 text-primary text-xs">
+                                          {item.teacherName?.charAt(0)}
+                                        </AvatarFallback>
                                       </Avatar>
-                                      {item.teacherName}
+                                      <span className="text-muted-foreground">{item.teacherName}</span>
                                     </div>
                                   </TableCell>
                                 );
@@ -729,10 +753,10 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                               
                               if (column.key === 'cleanedClass') {
                                 return (
-                                  <TableCell key={`child-${column.key}`} className="py-2 pl-10">
+                                  <TableCell key={`child-${column.key}`} className="py-2 px-6 pl-12 border-r border-border/20 last:border-r-0">
                                     <div className="flex items-center gap-2">
-                                      <span>{item.cleanedClass}</span>
-                                      <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal">
+                                      <span className="text-muted-foreground">{item.cleanedClass}</span>
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal bg-background/50">
                                         {item.date ? new Date(item.date.split(',')[0]).toLocaleDateString() : ""}
                                       </Badge>
                                     </div>
@@ -742,10 +766,16 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                               
                               return (
                                 <TableCell key={`child-${column.key}`} className={cn(
-                                  "py-2", 
+                                  "py-2 px-6 border-r border-border/20 last:border-r-0", 
                                   column.numeric ? "text-right" : "text-left"
                                 )}>
-                                  {formatCellValue(column.key, item[column.key as keyof ProcessedData])}
+                                  <span className={cn(
+                                    "text-muted-foreground",
+                                    column.numeric && "font-mono text-xs",
+                                    column.currency && "text-green-600/70 dark:text-green-400/70"
+                                  )}>
+                                    {formatCellValue(column.key, item[column.key as keyof ProcessedData])}
+                                  </span>
                                 </TableCell>
                               );
                             })}
@@ -757,8 +787,11 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={visibleColumns.length + 1} className="text-center py-10 text-muted-foreground">
-                    No results found
+                  <TableCell colSpan={visibleColumns.length + 1} className="text-center py-12 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2">
+                      <Search className="h-8 w-8 text-muted-foreground/50" />
+                      <span>No results found</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -767,13 +800,17 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
         </div>
       </div>
       
+      {/* Enhanced Pagination */}
       <div className="mt-6">
         <Pagination>
-          <PaginationContent>
+          <PaginationContent className="bg-background/50 backdrop-blur-sm rounded-lg border border-border/50 px-2">
             <PaginationItem>
               <PaginationPrevious 
                 onClick={() => goToPage(currentPage - 1)}
-                className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={cn(
+                  "transition-colors",
+                  currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-primary/10"
+                )}
               />
             </PaginationItem>
             
@@ -796,7 +833,12 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                   <PaginationLink
                     isActive={pageNumber === currentPage}
                     onClick={() => goToPage(pageNumber)}
-                    className="cursor-pointer"
+                    className={cn(
+                      "cursor-pointer transition-colors",
+                      pageNumber === currentPage 
+                        ? "bg-primary text-primary-foreground" 
+                        : "hover:bg-primary/10"
+                    )}
                   >
                     {pageNumber}
                   </PaginationLink>
@@ -807,14 +849,17 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
             <PaginationItem>
               <PaginationNext 
                 onClick={() => goToPage(currentPage + 1)}
-                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={cn(
+                  "transition-colors",
+                  currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-primary/10"
+                )}
               />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
         
-        <div className="mt-3 text-sm text-center text-muted-foreground">
-          Showing {Math.min((currentPage - 1) * pageSize + 1, sortedGroups.length)} to {Math.min(currentPage * pageSize, sortedGroups.length)} of {sortedGroups.length} {tableView === "grouped" ? "groups" : "rows"}
+        <div className="mt-4 text-sm text-center text-muted-foreground bg-background/50 backdrop-blur-sm rounded-lg py-2 border border-border/30">
+          Showing <span className="font-medium text-foreground">{Math.min((currentPage - 1) * pageSize + 1, sortedGroups.length)}</span> to <span className="font-medium text-foreground">{Math.min(currentPage * pageSize, sortedGroups.length)}</span> of <span className="font-medium text-foreground">{sortedGroups.length}</span> {tableView === "grouped" ? "groups" : "rows"}
         </div>
       </div>
     </div>
