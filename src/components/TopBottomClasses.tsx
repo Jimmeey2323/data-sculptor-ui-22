@@ -1,14 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ProcessedData } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatIndianCurrency } from './MetricsPanel';
-import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign, BarChart3, Eye } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, DollarSign, Calendar, BarChart3, Eye } from 'lucide-react';
 import ClassDrillDownModal from './analytics/ClassDrillDownModal';
 
 interface TopBottomClassesProps {
@@ -16,328 +14,369 @@ interface TopBottomClassesProps {
 }
 
 const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
-  const [groupByTrainer, setGroupByTrainer] = useState(false);
-  const [metric, setMetric] = useState<'attendance' | 'revenue'>('attendance');
-  const [displayCount, setDisplayCount] = useState(5);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [drillDownData, setDrillDownData] = useState<ProcessedData[]>([]);
 
-  const getTopBottomClasses = () => {
-    if (!data || data.length === 0) return { top: [], bottom: [] };
+  const classStats = useMemo(() => {
+    // Group by class name and aggregate data
+    const classGroups = data.reduce((acc, item) => {
+      const className = item.cleanedClass;
+      if (!acc[className]) {
+        acc[className] = {
+          className,
+          totalCheckins: 0,
+          totalRevenue: 0,
+          totalClasses: 0,
+          classes: []
+        };
+      }
+      
+      acc[className].totalCheckins += Number(item.totalCheckins) || 0;
+      acc[className].totalRevenue += Number(item.totalRevenue) || 0;
+      acc[className].totalClasses += 1;
+      acc[className].classes.push(item);
+      
+      return acc;
+    }, {} as Record<string, {
+      className: string;
+      totalCheckins: number;
+      totalRevenue: number;
+      totalClasses: number;
+      classes: ProcessedData[];
+    }>);
 
-    if (groupByTrainer) {
-      // Group by trainer and class type
-      const grouped = data.reduce((acc, item) => {
-        const key = `${item.teacherName}-${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
-        if (!acc[key]) {
-          acc[key] = {
-            teacherName: item.teacherName,
-            cleanedClass: item.cleanedClass,
-            dayOfWeek: item.dayOfWeek,
-            classTime: item.classTime,
-            location: item.location,
-            totalCheckins: 0,
-            totalRevenue: 0,
-            totalOccurrences: 0,
-            rawData: [],
-          };
+    const classArray = Object.values(classGroups);
+
+    // Sort by different metrics
+    const topByAttendance = [...classArray]
+      .sort((a, b) => b.totalCheckins - a.totalCheckins)
+      .slice(0, 5);
+
+    const bottomByAttendance = [...classArray]
+      .sort((a, b) => a.totalCheckins - b.totalCheckins)
+      .slice(0, 5);
+
+    const topByRevenue = [...classArray]
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 5);
+
+    const bottomByRevenue = [...classArray]
+      .sort((a, b) => a.totalRevenue - b.totalRevenue)
+      .slice(0, 5);
+
+    const topByClassCount = [...classArray]
+      .sort((a, b) => b.totalClasses - a.totalClasses)
+      .slice(0, 5);
+
+    const bottomByClassCount = [...classArray]
+      .sort((a, b) => a.totalClasses - b.totalClasses)
+      .slice(0, 5);
+
+    return {
+      topByAttendance,
+      bottomByAttendance,
+      topByRevenue,
+      bottomByRevenue,
+      topByClassCount,
+      bottomByClassCount,
+      classGroups
+    };
+  }, [data]);
+
+  const handleClassDrillDown = (className: string) => {
+    const classData = classStats.classGroups[className]?.classes || [];
+    setSelectedClass(className);
+    setDrillDownData(classData);
+  };
+
+  const ClassCard = ({ 
+    classData, 
+    rank, 
+    metric, 
+    isTop = true 
+  }: { 
+    classData: any; 
+    rank: number; 
+    metric: 'attendance' | 'revenue' | 'classes';
+    isTop?: boolean;
+  }) => {
+    const getMetricValue = () => {
+      switch (metric) {
+        case 'attendance':
+          return classData.totalCheckins;
+        case 'revenue':
+          return formatIndianCurrency(classData.totalRevenue);
+        case 'classes':
+          return classData.totalClasses;
+      }
+    };
+
+    const getMetricIcon = () => {
+      switch (metric) {
+        case 'attendance':
+          return <Users className="h-4 w-4" />;
+        case 'revenue':
+          return <DollarSign className="h-4 w-4" />;
+        case 'classes':
+          return <Calendar className="h-4 w-4" />;
+      }
+    };
+
+    const getGradientClass = () => {
+      if (isTop) {
+        switch (rank) {
+          case 1:
+            return 'bg-gradient-to-br from-yellow-50 to-amber-100 dark:from-yellow-950 dark:to-amber-900 border-yellow-200';
+          case 2:
+            return 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900 dark:to-slate-800 border-gray-200';
+          case 3:
+            return 'bg-gradient-to-br from-orange-50 to-red-100 dark:from-orange-950 dark:to-red-900 border-orange-200';
+          default:
+            return 'bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 border-green-200';
         }
-        acc[key].totalCheckins += Number(item.totalCheckins);
-        acc[key].totalRevenue += Number(item.totalRevenue);
-        acc[key].totalOccurrences += Number(item.totalOccurrences);
-        acc[key].rawData.push(item);
-        
-        return acc;
-      }, {} as Record<string, any>);
+      } else {
+        return 'bg-gradient-to-br from-red-50 to-pink-100 dark:from-red-950 dark:to-pink-900 border-red-200';
+      }
+    };
 
-      const classes = Object.values(grouped).map(item => ({
-        ...item,
-        average: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-      }));
-
-      // Filter out classes that don't meet criteria
-      const filteredClasses = classes.filter(item => {
-        return !item.cleanedClass.includes('Hosted') && 
-               !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 1;
-      });
-
-      return {
-        top: filteredClasses
-          .sort((a, b) => metric === 'attendance' 
-            ? b.average - a.average 
-            : b.totalRevenue - a.totalRevenue
-          )
-          .slice(0, displayCount),
-        bottom: filteredClasses
-          .sort((a, b) => metric === 'attendance'
-            ? a.average - b.average
-            : a.totalRevenue - b.totalRevenue
-          )
-          .slice(0, displayCount)
-      };
-    } else {
-      // Group by class type, day, time and location
-      const grouped = data.reduce((acc, item) => {
-        const key = `${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
-        if (!acc[key]) {
-          acc[key] = {
-            cleanedClass: item.cleanedClass,
-            dayOfWeek: item.dayOfWeek,
-            classTime: item.classTime,
-            location: item.location,
-            totalCheckins: 0,
-            totalRevenue: 0,
-            totalOccurrences: 0,
-            trainers: new Set(),
-            rawData: [],
-          };
-        }
-        acc[key].totalCheckins += Number(item.totalCheckins);
-        acc[key].totalRevenue += Number(item.totalRevenue);
-        acc[key].totalOccurrences += Number(item.totalOccurrences);
-        acc[key].trainers.add(item.teacherName);
-        acc[key].rawData.push(item);
-        
-        return acc;
-      }, {} as Record<string, any>);
-
-      const classes = Object.values(grouped).map(item => ({
-        ...item,
-        trainers: Array.from(item.trainers),
-        average: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-      }));
-
-      // Filter out classes that don't meet criteria
-      const filteredClasses = classes.filter(item => {
-        return !item.cleanedClass.includes('Hosted') && 
-               !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 1;
-      });
-
-      return {
-        top: filteredClasses
-          .sort((a, b) => metric === 'attendance'
-            ? b.average - a.average
-            : b.totalRevenue - a.totalRevenue
-          )
-          .slice(0, displayCount),
-        bottom: filteredClasses
-          .sort((a, b) => metric === 'attendance'
-            ? a.average - b.average
-            : a.totalRevenue - b.totalRevenue
-          )
-          .slice(0, displayCount)
-      };
-    }
-  };
-
-  const { top, bottom } = getTopBottomClasses();
-  const hasMoreData = useMemo(() => {
-    const totalFilteredClasses = data.filter(item => 
-      !item.cleanedClass.includes('Hosted') && 
-      !item.cleanedClass.includes('Recovery')
-    ).length;
-    
-    return totalFilteredClasses > displayCount;
-  }, [data, displayCount]);
-
-  const handleShowMore = () => {
-    setDisplayCount(prev => prev + 5);
-  };
-
-  const handleDrillDown = (classItem: any) => {
-    setSelectedClass(classItem.cleanedClass);
-    setDrillDownData(classItem.rawData || []);
-  };
-
-  const ClassCard = ({ item, index, isTop }: { item: any; index: number; isTop: boolean }) => (
-    <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-background via-background to-muted/20 hover:from-primary/5 hover:to-secondary/5">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg ${
-              isTop 
-                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg' 
-                : 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg'
-            }`}>
-              {isTop ? index + 1 : displayCount - index}
+    return (
+      <Card className={`transition-all duration-300 hover:shadow-lg hover:scale-105 ${getGradientClass()}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                isTop 
+                  ? rank === 1 
+                    ? 'bg-yellow-500 text-white' 
+                    : rank === 2 
+                    ? 'bg-gray-400 text-white'
+                    : rank === 3
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-green-500 text-white'
+                  : 'bg-red-500 text-white'
+              }`}>
+                {rank}
+              </div>
+              {isTop ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />}
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
-                {item.cleanedClass}
-              </h3>
-              {groupByTrainer ? (
-                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                  <Users className="h-3 w-3" />
-                  {item.teacherName}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                  <Users className="h-3 w-3" />
-                  {Array.isArray(item.trainers) 
-                    ? `${item.trainers.length} trainer${item.trainers.length > 1 ? 's' : ''}` 
-                    : ''}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className={`text-2xl font-bold ${isTop ? 'text-emerald-600' : 'text-orange-600'}`}>
-              {metric === 'attendance' 
-                ? item.average.toFixed(1)
-                : formatIndianCurrency(item.totalRevenue)
-              }
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {metric === 'attendance' ? 'Avg. Attendance' : 'Total Revenue'}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {item.dayOfWeek}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {item.classTime}
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {item.location}
-            </span>
-          </div>
-          <Badge variant="secondary" className="font-medium">
-            {item.totalOccurrences} classes
-          </Badge>
-        </div>
-        
-        <div className="flex items-center justify-between pt-3 border-t border-border/50">
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total check-ins:</span>
-              <span className="font-medium">{item.totalCheckins}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total revenue:</span>
-              <span className="font-medium">{formatIndianCurrency(item.totalRevenue)}</span>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleDrillDown(item)}
-            className="ml-3 gap-1"
-          >
-            <BarChart3 className="h-3 w-3" />
-            <Eye className="h-3 w-3" />
-            Analytics
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-        <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            Performance Analytics
-          </h2>
-          <p className="text-muted-foreground mt-2">
-            Discover your top and bottom performing classes with detailed drill-down analytics
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <Switch
-              checked={groupByTrainer}
-              onCheckedChange={setGroupByTrainer}
-              id="trainer-switch"
-              className="data-[state=checked]:bg-primary"
-            />
-            <Label htmlFor="trainer-switch" className="font-medium">
-              Group by Trainer
-            </Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleClassDrillDown(classData.className)}
+              className="h-8 w-8 p-0 hover:bg-background/50"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
           </div>
           
-          <Tabs value={metric} onValueChange={(value) => setMetric(value as 'attendance' | 'revenue')} className="w-auto">
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="attendance" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Attendance
-              </TabsTrigger>
-              <TabsTrigger value="revenue" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Revenue
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="space-y-2">
+            <h3 className="font-semibold text-sm leading-tight">{classData.className}</h3>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                {getMetricIcon()}
+                <span className="text-xs">
+                  {metric === 'attendance' ? 'Total Attendance' : 
+                   metric === 'revenue' ? 'Total Revenue' : 
+                   'Total Classes'}
+                </span>
+              </div>
+              <Badge 
+                variant="secondary" 
+                className={`font-bold ${
+                  isTop ? 'bg-background/50 text-foreground' : 'bg-background/50 text-foreground'
+                }`}
+              >
+                {getMetricValue()}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                <span>{classData.totalCheckins}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                <span>{classData.totalClasses}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-border/30">
+              <div className="text-xs text-muted-foreground">
+                Avg: {(classData.totalCheckins / classData.totalClasses).toFixed(1)} per class
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Class Performance Rankings
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Based on {data.length} classes from your filtered data
+          </p>
         </div>
+        <Badge variant="outline" className="bg-muted/50">
+          {Object.keys(classStats.classGroups).length} Unique Classes
+        </Badge>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {/* Top Performers */}
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-emerald-50 via-background to-green-50/50 dark:from-emerald-950/20 dark:via-background dark:to-green-950/10">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-3 text-emerald-700 dark:text-emerald-400">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              Top {displayCount} Performers
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {top.length > 0 ? top.map((item, index) => (
-              <ClassCard key={index} item={item} index={index} isTop={true} />
-            )) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the criteria</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="attendance" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+          <TabsTrigger value="attendance" className="data-[state=active]:bg-background">
+            <Users className="w-4 h-4 mr-2" />
+            By Attendance
+          </TabsTrigger>
+          <TabsTrigger value="revenue" className="data-[state=active]:bg-background">
+            <DollarSign className="w-4 h-4 mr-2" />
+            By Revenue
+          </TabsTrigger>
+          <TabsTrigger value="classes" className="data-[state=active]:bg-background">
+            <Calendar className="w-4 h-4 mr-2" />
+            By Class Count
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Bottom Performers */}
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-orange-50 via-background to-red-50/50 dark:from-orange-950/20 dark:via-background dark:to-red-950/10">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-3 text-orange-700 dark:text-orange-400">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
-                <TrendingDown className="h-5 w-5" />
-              </div>
-              Bottom {displayCount} Performers
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {bottom.length > 0 ? bottom.map((item, index) => (
-              <ClassCard key={index} item={item} index={index} isTop={false} />
-            )) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the criteria</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="attendance" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  Top Classes by Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.topByAttendance.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="attendance"
+                    isTop={true}
+                  />
+                ))}
+              </CardContent>
+            </Card>
 
-      {hasMoreData && (
-        <div className="text-center">
-          <Button 
-            variant="outline" 
-            onClick={handleShowMore}
-            className="bg-background/80 backdrop-blur-sm hover:bg-primary/5 border-primary/20 hover:border-primary/40 transition-all duration-300"
-          >
-            Show More Classes <ChevronDown className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      )}
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingDown className="h-5 w-5 text-red-600" />
+                  Bottom Classes by Attendance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.bottomByAttendance.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="attendance"
+                    isTop={false}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  Top Classes by Revenue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.topByRevenue.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="revenue"
+                    isTop={true}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingDown className="h-5 w-5 text-red-600" />
+                  Bottom Classes by Revenue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.bottomByRevenue.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="revenue"
+                    isTop={false}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="classes" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  Most Frequent Classes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.topByClassCount.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="classes"
+                    isTop={true}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingDown className="h-5 w-5 text-red-600" />
+                  Least Frequent Classes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {classStats.bottomByClassCount.map((classData, index) => (
+                  <ClassCard
+                    key={classData.className}
+                    classData={classData}
+                    rank={index + 1}
+                    metric="classes"
+                    isTop={false}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <ClassDrillDownModal
         isOpen={!!selectedClass}

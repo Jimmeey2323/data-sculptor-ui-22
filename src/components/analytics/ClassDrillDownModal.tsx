@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { formatIndianCurrency } from '@/components/MetricsPanel';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Calendar, Clock, MapPin, Users, TrendingUp, DollarSign, Target, Award } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar, Clock, MapPin, Users, TrendingUp, DollarSign, Target, Award, User } from 'lucide-react';
 
 interface ClassDrillDownModalProps {
   isOpen: boolean;
@@ -25,77 +27,41 @@ const ClassDrillDownModal: React.FC<ClassDrillDownModalProps> = ({
   const analytics = useMemo(() => {
     if (!classData.length) return null;
 
-    // Monthly trend analysis
-    const monthlyData = classData.reduce((acc, item) => {
-      const month = new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-      if (!acc[month]) {
-        acc[month] = { month, checkins: 0, revenue: 0, classes: 0 };
-      }
-      acc[month].checkins += Number(item.totalCheckins);
-      acc[month].revenue += Number(item.totalRevenue);
-      acc[month].classes += Number(item.totalOccurrences);
-      return acc;
-    }, {} as Record<string, any>);
+    // Sort by date (most recent first)
+    const sortedClasses = [...classData].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Trainer performance
-    const trainerData = classData.reduce((acc, item) => {
-      if (!acc[item.teacherName]) {
-        acc[item.teacherName] = { 
-          name: item.teacherName, 
-          checkins: 0, 
-          revenue: 0, 
-          classes: 0,
-          avgAttendance: 0
-        };
-      }
-      acc[item.teacherName].checkins += Number(item.totalCheckins);
-      acc[item.teacherName].revenue += Number(item.totalRevenue);
-      acc[item.teacherName].classes += Number(item.totalOccurrences);
-      return acc;
-    }, {} as Record<string, any>);
-
-    // Calculate average attendance for trainers
-    Object.values(trainerData).forEach((trainer: any) => {
-      trainer.avgAttendance = trainer.classes > 0 ? trainer.checkins / trainer.classes : 0;
-    });
-
-    // Location performance
-    const locationData = classData.reduce((acc, item) => {
-      if (!acc[item.location]) {
-        acc[item.location] = { location: item.location, checkins: 0, revenue: 0, classes: 0 };
-      }
-      acc[item.location].checkins += Number(item.totalCheckins);
-      acc[item.location].revenue += Number(item.totalRevenue);
-      acc[item.location].classes += Number(item.totalOccurrences);
-      return acc;
-    }, {} as Record<string, any>);
-
-    // Time slot analysis
-    const timeSlotData = classData.reduce((acc, item) => {
-      if (!acc[item.classTime]) {
-        acc[item.classTime] = { time: item.classTime, checkins: 0, revenue: 0, classes: 0 };
-      }
-      acc[item.classTime].checkins += Number(item.totalCheckins);
-      acc[item.classTime].revenue += Number(item.totalRevenue);
-      acc[item.classTime].classes += Number(item.totalOccurrences);
-      return acc;
-    }, {} as Record<string, any>);
-
-    // Day of week analysis
-    const dayData = classData.reduce((acc, item) => {
-      if (!acc[item.dayOfWeek]) {
-        acc[item.dayOfWeek] = { day: item.dayOfWeek, checkins: 0, revenue: 0, classes: 0 };
-      }
-      acc[item.dayOfWeek].checkins += Number(item.totalCheckins);
-      acc[item.dayOfWeek].revenue += Number(item.totalRevenue);
-      acc[item.dayOfWeek].classes += Number(item.totalOccurrences);
-      return acc;
-    }, {} as Record<string, any>);
-
+    // Summary stats
     const totalCheckins = classData.reduce((sum, item) => sum + Number(item.totalCheckins), 0);
     const totalRevenue = classData.reduce((sum, item) => sum + Number(item.totalRevenue), 0);
-    const totalClasses = classData.reduce((sum, item) => sum + Number(item.totalOccurrences), 0);
+    const totalClasses = classData.length;
     const avgAttendance = totalClasses > 0 ? totalCheckins / totalClasses : 0;
+
+    // Group by trainer for trainer tab
+    const trainerClasses = classData.reduce((acc, item) => {
+      if (!acc[item.teacherName]) {
+        acc[item.teacherName] = [];
+      }
+      acc[item.teacherName].push(item);
+      return acc;
+    }, {} as Record<string, ProcessedData[]>);
+
+    // Group by location for location tab
+    const locationClasses = classData.reduce((acc, item) => {
+      if (!acc[item.location]) {
+        acc[item.location] = [];
+      }
+      acc[item.location].push(item);
+      return acc;
+    }, {} as Record<string, ProcessedData[]>);
+
+    // Group by time for schedule tab
+    const timeClasses = classData.reduce((acc, item) => {
+      if (!acc[item.classTime]) {
+        acc[item.classTime] = [];
+      }
+      acc[item.classTime].push(item);
+      return acc;
+    }, {} as Record<string, ProcessedData[]>);
 
     return {
       summary: {
@@ -106,239 +72,281 @@ const ClassDrillDownModal: React.FC<ClassDrillDownModalProps> = ({
         uniqueTrainers: new Set(classData.map(item => item.teacherName)).size,
         uniqueLocations: new Set(classData.map(item => item.location)).size
       },
-      monthly: Object.values(monthlyData),
-      trainers: Object.values(trainerData).sort((a: any, b: any) => b.checkins - a.checkins),
-      locations: Object.values(locationData).sort((a: any, b: any) => b.checkins - a.checkins),
-      timeSlots: Object.values(timeSlotData).sort((a: any, b: any) => b.checkins - a.checkins),
-      days: Object.values(dayData)
+      allClasses: sortedClasses,
+      trainerClasses,
+      locationClasses,
+      timeClasses
     };
   }, [classData]);
 
   if (!analytics) return null;
 
-  const COLORS = ['#26B5C0', '#88B48A', '#FF7D6B', '#9D8DF2', '#FFB347', '#A877B1', '#71AFE5', '#77DD77'];
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const ClassTable = ({ classes, showTrainer = true, showLocation = true, showTime = true }: { 
+    classes: ProcessedData[], 
+    showTrainer?: boolean, 
+    showLocation?: boolean, 
+    showTime?: boolean 
+  }) => (
+    <ScrollArea className="h-[400px]">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            {showTrainer && <TableHead>Trainer</TableHead>}
+            {showTime && <TableHead>Time</TableHead>}
+            {showLocation && <TableHead>Location</TableHead>}
+            <TableHead className="text-right">Attendance</TableHead>
+            <TableHead className="text-right">Revenue</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {classes.map((classItem, index) => (
+            <TableRow key={index} className="hover:bg-muted/50">
+              <TableCell>
+                <div>
+                  <div className="font-medium">{new Date(classItem.date).toLocaleDateString()}</div>
+                  <div className="text-sm text-muted-foreground">{classItem.dayOfWeek}</div>
+                </div>
+              </TableCell>
+              {showTrainer && (
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-xs">
+                        {getInitials(classItem.teacherName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{classItem.teacherName}</span>
+                  </div>
+                </TableCell>
+              )}
+              {showTime && (
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm">{classItem.classTime}</span>
+                  </div>
+                </TableCell>
+              )}
+              {showLocation && (
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-sm">{classItem.location}</span>
+                  </div>
+                </TableCell>
+              )}
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <Users className="h-3 w-3 text-blue-600" />
+                  <span className="font-medium">{classItem.totalCheckins}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <span className="font-medium text-green-600">
+                  {formatIndianCurrency(Number(classItem.totalRevenue))}
+                </span>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </ScrollArea>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Target className="h-5 w-5" />
-            {className} - Detailed Analytics
+            <Target className="h-5 w-5 text-primary" />
+            {className} - Individual Class Analytics
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200">
               <CardContent className="p-4 text-center">
-                <Users className="h-6 w-6 mx-auto mb-2 text-primary" />
-                <div className="text-2xl font-bold">{analytics.summary.totalCheckins.toFixed(0)}</div>
-                <div className="text-xs text-muted-foreground">Total Check-ins</div>
+                <Users className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{analytics.summary.totalCheckins}</div>
+                <div className="text-xs text-blue-700 dark:text-blue-300">Total Check-ins</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200">
               <CardContent className="p-4 text-center">
                 <DollarSign className="h-6 w-6 mx-auto mb-2 text-green-600" />
-                <div className="text-lg font-bold">{formatIndianCurrency(analytics.summary.totalRevenue)}</div>
-                <div className="text-xs text-muted-foreground">Total Revenue</div>
+                <div className="text-lg font-bold text-green-900 dark:text-green-100">{formatIndianCurrency(analytics.summary.totalRevenue)}</div>
+                <div className="text-xs text-green-700 dark:text-green-300">Total Revenue</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200">
               <CardContent className="p-4 text-center">
-                <Calendar className="h-6 w-6 mx-auto mb-2 text-blue-600" />
-                <div className="text-2xl font-bold">{analytics.summary.totalClasses}</div>
-                <div className="text-xs text-muted-foreground">Total Classes</div>
+                <Calendar className="h-6 w-6 mx-auto mb-2 text-purple-600" />
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{analytics.summary.totalClasses}</div>
+                <div className="text-xs text-purple-700 dark:text-purple-300">Total Classes</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200">
               <CardContent className="p-4 text-center">
                 <TrendingUp className="h-6 w-6 mx-auto mb-2 text-orange-600" />
-                <div className="text-2xl font-bold">{analytics.summary.avgAttendance.toFixed(1)}</div>
-                <div className="text-xs text-muted-foreground">Avg Attendance</div>
+                <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{analytics.summary.avgAttendance.toFixed(1)}</div>
+                <div className="text-xs text-orange-700 dark:text-orange-300">Avg Attendance</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-950 dark:to-pink-900 border-pink-200">
               <CardContent className="p-4 text-center">
-                <Users className="h-6 w-6 mx-auto mb-2 text-purple-600" />
-                <div className="text-2xl font-bold">{analytics.summary.uniqueTrainers}</div>
-                <div className="text-xs text-muted-foreground">Trainers</div>
+                <User className="h-6 w-6 mx-auto mb-2 text-pink-600" />
+                <div className="text-2xl font-bold text-pink-900 dark:text-pink-100">{analytics.summary.uniqueTrainers}</div>
+                <div className="text-xs text-pink-700 dark:text-pink-300">Trainers</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-950 dark:to-teal-900 border-teal-200">
               <CardContent className="p-4 text-center">
-                <MapPin className="h-6 w-6 mx-auto mb-2 text-red-600" />
-                <div className="text-2xl font-bold">{analytics.summary.uniqueLocations}</div>
-                <div className="text-xs text-muted-foreground">Locations</div>
+                <MapPin className="h-6 w-6 mx-auto mb-2 text-teal-600" />
+                <div className="text-2xl font-bold text-teal-900 dark:text-teal-100">{analytics.summary.uniqueLocations}</div>
+                <div className="text-xs text-teal-700 dark:text-teal-300">Locations</div>
               </CardContent>
             </Card>
           </div>
 
-          <Tabs defaultValue="trends" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="trends">Trends</TabsTrigger>
-              <TabsTrigger value="trainers">Trainers</TabsTrigger>
-              <TabsTrigger value="locations">Locations</TabsTrigger>
-              <TabsTrigger value="timing">Timing</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="grid w-full grid-cols-5 bg-muted/50">
+              <TabsTrigger value="all" className="data-[state=active]:bg-background">All Classes</TabsTrigger>
+              <TabsTrigger value="trainers" className="data-[state=active]:bg-background">By Trainer</TabsTrigger>
+              <TabsTrigger value="locations" className="data-[state=active]:bg-background">By Location</TabsTrigger>
+              <TabsTrigger value="schedule" className="data-[state=active]:bg-background">By Time</TabsTrigger>
+              <TabsTrigger value="performance" className="data-[state=active]:bg-background">Performance</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="trends" className="space-y-4">
-              <Card>
+            <TabsContent value="all" className="space-y-4">
+              <Card className="border-border/50">
                 <CardHeader>
-                  <CardTitle>Monthly Performance Trend</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    All Individual Classes
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={analytics.monthly}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
-                      <Tooltip />
-                      <Bar yAxisId="left" dataKey="checkins" fill="#26B5C0" name="Check-ins" />
-                      <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#FF7D6B" name="Revenue" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <ClassTable classes={analytics.allClasses} />
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="trainers" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
+              {Object.entries(analytics.trainerClasses).map(([trainerName, classes]) => (
+                <Card key={trainerName} className="border-border/50">
                   <CardHeader>
-                    <CardTitle>Trainer Performance</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      {trainerName} ({classes.length} classes)
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={analytics.trainers.slice(0, 8)}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="checkins" fill="#26B5C0" name="Check-ins" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <ClassTable classes={classes} showTrainer={false} />
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Trainers</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {analytics.trainers.slice(0, 5).map((trainer: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{trainer.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {trainer.classes} classes • Avg: {trainer.avgAttendance.toFixed(1)}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold">{trainer.checkins}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatIndianCurrency(trainer.revenue)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
+              ))}
             </TabsContent>
 
             <TabsContent value="locations" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
+              {Object.entries(analytics.locationClasses).map(([location, classes]) => (
+                <Card key={location} className="border-border/50">
                   <CardHeader>
-                    <CardTitle>Location Performance</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      {location} ({classes.length} classes)
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={analytics.locations}
-                          dataKey="checkins"
-                          nameKey="location"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          label={(entry) => entry.location}
-                        >
-                          {analytics.locations.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <ClassTable classes={classes} showLocation={false} />
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Location Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {analytics.locations.map((location: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                          <div>
-                            <div className="font-medium">{location.location}</div>
-                            <div className="text-sm text-muted-foreground">{location.classes} classes</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold">{location.checkins}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatIndianCurrency(location.revenue)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="timing" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Performance by Time Slot</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analytics.timeSlots}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="checkins" fill="#9D8DF2" name="Check-ins" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              ))}
             </TabsContent>
 
             <TabsContent value="schedule" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Performance by Day of Week</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analytics.days}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="checkins" fill="#88B48A" name="Check-ins" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
+              {Object.entries(analytics.timeClasses).map(([time, classes]) => (
+                <Card key={time} className="border-border/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      {time} ({classes.length} classes)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ClassTable classes={classes} showTime={false} />
+                  </CardContent>
+                </Card>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="performance" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Top Performing Classes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {[...analytics.allClasses]
+                          .sort((a, b) => Number(b.totalCheckins) - Number(a.totalCheckins))
+                          .slice(0, 10)
+                          .map((classItem, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+                              <div>
+                                <div className="font-medium">{new Date(classItem.date).toLocaleDateString()}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {classItem.teacherName} • {classItem.location}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-bold text-green-600">{classItem.totalCheckins} attendees</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatIndianCurrency(Number(classItem.totalRevenue))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Recent Classes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {analytics.allClasses.slice(0, 10).map((classItem, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+                            <div>
+                              <div className="font-medium">{new Date(classItem.date).toLocaleDateString()}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {classItem.teacherName} • {classItem.classTime}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold">{classItem.totalCheckins} attendees</div>
+                              <div className="text-sm text-muted-foreground">
+                                {formatIndianCurrency(Number(classItem.totalRevenue))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

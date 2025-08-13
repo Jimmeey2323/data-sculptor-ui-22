@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { ProcessedData, ViewMode, FilterOption, SortOption } from '@/types/data';
 import ViewSwitcherWrapper from './ViewSwitcherWrapper';
 import { DataTable } from '@/components/DataTable';
-import DataFilters from '@/components/DataFilters';
 import MetricsPanel from '@/components/MetricsPanel';
 import ChartPanel from '@/components/ChartPanel';
 import TopBottomClasses from '@/components/TopBottomClasses';
@@ -11,22 +10,19 @@ import GridView from '@/components/views/GridView';
 import KanbanView from '@/components/views/KanbanView';
 import TimelineView from '@/components/views/TimelineView';
 import PivotView from '@/components/views/PivotView';
-import SearchBar from '@/components/SearchBar';
 import TrainerComparisonView from '@/components/TrainerComparisonView';
 import LocationComparisonView from '@/components/comparisons/LocationComparisonView';
 import ClassComparisonView from '@/components/comparisons/ClassComparisonView';
 import TimeComparisonView from '@/components/comparisons/TimeComparisonView';
 import PivotTableConfiguration from '@/components/PivotTableConfiguration';
-import { DateRange } from '@/components/DateRangePicker';
+import EnhancedDataFilters from '@/components/EnhancedDataFilters';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { exportToCSV } from '@/utils/fileProcessing';
+import { FilterOptions, applyFilters } from '@/utils/filterUtils';
 import { 
-  Upload, 
-  BarChart3, 
   Download, 
   RefreshCw, 
-  Search,
   FileText,
   FileSpreadsheet,
   FileJson,
@@ -34,17 +30,15 @@ import {
   MapPin,
   Clock,
   BookOpen,
-  ChevronDown,
-  ChevronUp,
+  Settings,
   Filter,
-  X,
-  Settings
+  X
 } from 'lucide-react';
 import ProgressBar from '@/components/ProgressBar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import CountUp from 'react-countup';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -56,11 +50,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose
 } from "@/components/ui/dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 
 interface DashboardProps {
@@ -98,113 +89,19 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const { toast } = useToast();
   const [filteredData, setFilteredData] = useState<ProcessedData[]>([]);
-  const [filters, setFilters] = useState<FilterOption[]>([]);
-  const [sortOptions, setSortOptions] = useState<SortOption[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
-  const [isTableFilterCollapsed, setIsTableFilterCollapsed] = useState(true);
-  const [showTrainerComparison, setShowTrainerComparison] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({});
   const [activeComparisonTab, setActiveComparisonTab] = useState('trainers');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [savedPivotConfigs, setSavedPivotConfigs] = useState<any[]>([]);
   const [showPivotConfig, setShowPivotConfig] = useState(false);
 
   // Apply filters effect
   useEffect(() => {
     if (!data.length) return;
-
-    let result = [...data];
-
-    // Apply date range filter if set
-    if (dateRange && dateRange.from) {
-      result = result.filter(item => {
-        const itemDate = new Date(item.date);
-        if (dateRange.from && itemDate < dateRange.from) {
-          return false;
-        }
-        if (dateRange.to && itemDate > dateRange.to) {
-          return false;
-        }
-        return true;
-      });
-    }
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(item => 
-        Object.values(item).some(value => 
-          String(value).toLowerCase().includes(query)
-        )
-      );
-    }
-
-    // Apply other filters
-    if (filters.length > 0) {
-      result = result.filter(item => {
-        return filters.every(filter => {
-          if (filter.field === 'period' && filter.operator === 'in') {
-            const selectedPeriods = filter.value.split(',');
-            return selectedPeriods.some(period => item.period === period);
-          }
-          
-          const fieldValue = String(item[filter.field]);
-          
-          switch (filter.operator) {
-            case 'contains':
-              return fieldValue.toLowerCase().includes(filter.value.toLowerCase());
-            case 'equals':
-              return fieldValue.toLowerCase() === filter.value.toLowerCase();
-            case 'starts':
-              return fieldValue.toLowerCase().startsWith(filter.value.toLowerCase());
-            case 'ends':
-              return fieldValue.toLowerCase().endsWith(filter.value.toLowerCase());
-            case 'greater':
-              return Number(fieldValue) > Number(filter.value);
-            case 'less':
-              return Number(fieldValue) < Number(filter.value);
-            case 'after':
-              return new Date(fieldValue) > new Date(filter.value);
-            case 'before':
-              return new Date(fieldValue) < new Date(filter.value);
-            case 'on':
-              return new Date(fieldValue).toDateString() === new Date(filter.value).toDateString();
-            default:
-              return true;
-          }
-        });
-      });
-    }
-
-    // Apply sorting
-    if (sortOptions.length > 0) {
-      result.sort((a, b) => {
-        for (const sort of sortOptions) {
-          const valueA = a[sort.field];
-          const valueB = b[sort.field];
-          
-          const isNumeric = !isNaN(Number(valueA)) && !isNaN(Number(valueB));
-          
-          let comparison = 0;
-          if (isNumeric) {
-            comparison = Number(valueA) - Number(valueB);
-          } else {
-            comparison = String(valueA).localeCompare(String(valueB));
-          }
-          
-          if (comparison !== 0) {
-            return sort.direction === 'asc' ? comparison : -comparison;
-          }
-        }
-        
-        return 0;
-      });
-    }
-    
+    const result = applyFilters(data, filters);
     setFilteredData(result);
-  }, [data, filters, sortOptions, searchQuery, dateRange]);
+  }, [data, filters]);
 
-  // Load saved pivot configurations and data from localStorage on component mount
+  // Load saved pivot configurations from localStorage on component mount
   useEffect(() => {
     const savedConfigs = localStorage.getItem('pivotConfigs');
     if (savedConfigs) {
@@ -216,16 +113,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, []);
 
-  const handleFilterChange = (newFilters: FilterOption[]) => {
+  const handleFiltersChange = (newFilters: FilterOptions) => {
     setFilters(newFilters);
-  };
-
-  const handleSortChange = (newSortOptions: SortOption[]) => {
-    setSortOptions(newSortOptions);
-  };
-
-  const handleDateRangeChange = (range?: DateRange) => {
-    setDateRange(range);
   };
 
   const handleExport = (format: 'csv' | 'json' | 'excel') => {
@@ -243,15 +132,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       exportToCSV(filteredData);
     }
   };
-
-  const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-  }; 
   
   const clearFilters = () => {
-    setFilters([]);
-    setSearchQuery('');
-    setDateRange(undefined);
+    setFilters({});
   };
 
   const handleSavePivotConfig = (config: any) => {
@@ -268,6 +151,18 @@ const Dashboard: React.FC<DashboardProps> = ({
     const newConfigs = savedPivotConfigs.filter((_, i) => i !== index);
     setSavedPivotConfigs(newConfigs);
     localStorage.setItem('pivotConfigs', JSON.stringify(newConfigs));
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.searchTerm) count++;
+    if (filters.selectedTrainer && filters.selectedTrainer !== 'all') count++;
+    if (filters.selectedClass && filters.selectedClass !== 'all') count++;
+    if (filters.selectedLocation && filters.selectedLocation !== 'all') count++;
+    if (filters.selectedDayOfWeek && filters.selectedDayOfWeek !== 'all') count++;
+    if (filters.selectedPeriod && filters.selectedPeriod !== 'all') count++;
+    if (filters.dateRange && (filters.dateRange.from || filters.dateRange.to)) count++;
+    return count;
   };
 
   if (loading) {
@@ -291,40 +186,58 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
+  const activeFilterCount = getActiveFilterCount();
+
   return (
-    <div className="space-y-6 animate-fade-in bg-gradient-to-b from-[#F8F9FC] to-[#F0F4FF] dark:from-gray-900 dark:to-gray-950 min-h-screen">
-      <div className="bg-white dark:bg-gray-900 border-b shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center">
+    <div className="space-y-6 animate-fade-in bg-gradient-to-b from-background via-background to-muted/20 dark:from-gray-900 dark:to-gray-950 min-h-screen">
+      {/* Header */}
+      <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <motion.img 
               src="https://i.imgur.com/9mOm7gP.png" 
               alt="Logo" 
-              className="h-10 w-auto mr-3"
+              className="h-10 w-auto"
               initial={{ rotate: 0 }}
               animate={{ rotate: 360 }}
               transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
             />
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-[#1E2F4D] dark:text-slate-100">
+              <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Class Analytics Dashboard
               </h1>
-              <p className="text-xs text-[#6B7A99] dark:text-slate-400">
-                {filteredData.length} Classes | {filters.length} Active Filters
-              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{filteredData.length} Classes</span>
+                {activeFilterCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <Badge variant="secondary" className="h-5 px-2 text-xs">
+                      {activeFilterCount} Filter{activeFilterCount > 1 ? 's' : ''}
+                    </Badge>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           
           <div className="flex items-center gap-2 ml-auto">
             <ThemeToggle />
             
-            <Button variant="outline" size="sm" onClick={onReset} className="border-[#E0E6F0]">
+            {activeFilterCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1.5">
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            )}
+            
+            <Button variant="outline" size="sm" onClick={onReset}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Upload New
             </Button>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="border-[#E0E6F0]">
+                <Button variant="outline" size="sm">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -345,7 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <Button variant="outline" size="sm" onClick={() => setShowPivotConfig(true)} className="hidden md:flex border-[#E0E6F0]">
+            <Button variant="outline" size="sm" onClick={() => setShowPivotConfig(true)} className="hidden md:flex">
               <Settings className="mr-2 h-4 w-4" />
               Customize
             </Button>
@@ -360,84 +273,48 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="container mx-auto px-4">
-        <Collapsible
-          open={!isFilterCollapsed}
-          onOpenChange={(open) => setIsFilterCollapsed(!open)}
-          className="w-full bg-white dark:bg-gray-900 shadow-sm rounded-lg border border-[#E0E6F0] mb-6"
-        >
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="flex-1 max-w-xl">
-                <SearchBar onSearch={handleSearchChange} data={data} />
-              </div>
-              {(filters.length > 0 || dateRange || searchQuery) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearFilters}
-                  className="gap-1.5 hidden sm:flex"
-                >
-                  <X className="h-4 w-4" />
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-1 border-[#E0E6F0]">
-                  <Filter className="h-4 w-4" />
-                  <span className="hidden sm:inline">Global Filters</span>
-                  {isFilterCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </div>
-          
-          <CollapsibleContent>
-            <div className="p-4 border-t">
-              <DataFilters 
-                onFilterChange={handleFilterChange} 
-                onSortChange={handleSortChange}
-                onDateRangeChange={handleDateRangeChange}
-                data={data}
-                activeFilters={filters.length}
-                dateRange={dateRange}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        {/* Enhanced Filters */}
+        <EnhancedDataFilters 
+          data={data} 
+          filters={filters} 
+          onFiltersChange={handleFiltersChange} 
+        />
 
+        {/* Metrics Panel */}
         <MetricsPanel data={filteredData} />
         
+        {/* Top/Bottom Classes */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <Card className="lg:col-span-3 border-[#E0E6F0] rounded-xl shadow-sm">
+          <Card className="lg:col-span-3 border-border/50 shadow-lg bg-gradient-to-br from-background to-muted/30">
             <CardContent className="p-6">
               <TopBottomClasses data={filteredData} />
             </CardContent>
           </Card>
         </div>
         
+        {/* Comparison Analysis */}
         <div className="mb-6">
-          <Card className="border-[#E0E6F0] rounded-xl shadow-sm">
+          <Card className="border-border/50 shadow-lg bg-gradient-to-br from-background to-muted/30">
             <CardContent className="p-6">
               <Tabs defaultValue="trainers" value={activeComparisonTab} onValueChange={setActiveComparisonTab} className="w-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-[#323B4C] dark:text-white">Comparison Analysis</h2>
-                  <TabsList>
-                    <TabsTrigger value="trainers" onClick={() => setActiveComparisonTab("trainers")}>
+                  <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    Comparison Analysis
+                  </h2>
+                  <TabsList className="bg-muted/50">
+                    <TabsTrigger value="trainers" className="data-[state=active]:bg-background">
                       <Users className="w-4 h-4 mr-2" />
                       Trainers
                     </TabsTrigger>
-                    <TabsTrigger value="locations" onClick={() => setActiveComparisonTab("locations")}>
+                    <TabsTrigger value="locations" className="data-[state=active]:bg-background">
                       <MapPin className="w-4 h-4 mr-2" />
                       Locations
                     </TabsTrigger>
-                    <TabsTrigger value="classes" onClick={() => setActiveComparisonTab("classes")}>
+                    <TabsTrigger value="classes" className="data-[state=active]:bg-background">
                       <BookOpen className="w-4 h-4 mr-2" />
                       Classes
                     </TabsTrigger>
-                    <TabsTrigger value="time" onClick={() => setActiveComparisonTab("time")}>
+                    <TabsTrigger value="time" className="data-[state=active]:bg-background">
                       <Clock className="w-4 h-4 mr-2" />
                       Time & Day
                     </TabsTrigger>
@@ -464,71 +341,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           </Card>
         </div>
 
+        {/* View Switcher */}
         <ViewSwitcherWrapper viewMode={viewMode} setViewMode={setViewMode} />
 
-        <div className="bg-white dark:bg-gray-900 border border-[#E0E6F0] rounded-xl shadow-sm mb-6">
-          {viewMode === 'table' && (
-            <>
-              <Collapsible
-                open={!isTableFilterCollapsed}
-                onOpenChange={(open) => setIsTableFilterCollapsed(!open)}
-              >
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h3 className="text-lg font-semibold text-[#323B4C] dark:text-white">Data Table</h3>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center gap-1 border-[#E0E6F0]">
-                      <Filter className="h-4 w-4" />
-                      <span className="hidden sm:inline">Table Filters</span>
-                      {isTableFilterCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                    </Button>
-                  </CollapsibleTrigger>
-                </div>
-                
-                <CollapsibleContent>
-                  <div className="p-4 border-b bg-gray-50 dark:bg-gray-800">
-                    {/* Table-specific filters will go here */}
-                    <p className="text-sm text-muted-foreground">Table-specific filters coming soon...</p>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-              <DataTable data={filteredData} trainerAvatars={trainerAvatars} />
-            </>
-          )}
+        {/* Data Views */}
+        <div className="bg-background border border-border/50 rounded-xl shadow-lg mb-6 overflow-hidden">
+          {viewMode === 'table' && <DataTable data={filteredData} trainerAvatars={trainerAvatars} />}
           {viewMode === 'grid' && <GridView data={filteredData} trainerAvatars={trainerAvatars} />}
           {viewMode === 'kanban' && <KanbanView data={filteredData} trainerAvatars={trainerAvatars} />}
           {viewMode === 'timeline' && <TimelineView data={filteredData} trainerAvatars={trainerAvatars} />}
           {viewMode === 'pivot' && <PivotView data={filteredData} trainerAvatars={trainerAvatars} />}
         </div>
         
-        {savedPivotConfigs.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 mb-6">
-            {savedPivotConfigs.map((config, index) => (
-              <Card key={index} className="border-[#E0E6F0] rounded-xl shadow-sm overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="flex items-center justify-between p-4 border-b">
-                    <h3 className="font-semibold">{config.name || `Saved Pivot ${index + 1}`}</h3>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleDeletePivotConfig(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm text-muted-foreground">
-                      Rows: {config.rowDimension}, Columns: {config.colDimension}, Metric: {config.metric}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-        
+        {/* Chart Panel */}
         <ChartPanel data={filteredData} />
       </div>
 
+      {/* Pivot Configuration Dialog */}
       {showPivotConfig && (
         <Dialog open={showPivotConfig} onOpenChange={setShowPivotConfig}>
           <DialogContent className="sm:max-w-[600px]">
