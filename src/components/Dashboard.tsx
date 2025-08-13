@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ProcessedData, ViewMode, FilterOption, SortOption } from '@/types/data';
 import ViewSwitcherWrapper from './ViewSwitcherWrapper';
@@ -413,7 +412,18 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <Card className="lg:col-span-3 border-[#E0E6F0] rounded-xl shadow-sm">
             <CardContent className="p-6">
-              <TopBottomClasses data={filteredData} />
+              <TopBottomClasses 
+                data={filteredData} 
+                filters={{
+                  searchTerm: searchQuery,
+                  selectedTrainer: filters.find(f => f.field === 'teacherName')?.value || 'all',
+                  selectedClass: filters.find(f => f.field === 'cleanedClass')?.value || 'all',
+                  selectedLocation: filters.find(f => f.field === 'location')?.value || 'all',
+                  selectedDayOfWeek: filters.find(f => f.field === 'dayOfWeek')?.value || 'all',
+                  selectedPeriod: filters.find(f => f.field === 'period')?.value || 'all',
+                  dateRange: dateRange ? { from: dateRange.from, to: dateRange.to } : undefined,
+                }}
+              />
             </CardContent>
           </Card>
         </div>
