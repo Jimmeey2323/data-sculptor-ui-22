@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessedData } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -208,7 +207,7 @@ const TrainerComparisonView: React.FC<TrainerComparisonViewProps> = ({ data, tra
       y: 0, 
       opacity: 1,
       transition: {
-        type: 'spring',
+        type: "spring" as const,
         stiffness: 100
       }
     }

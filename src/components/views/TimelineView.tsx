@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { ProcessedData } from '@/types/data';
 import { Card, CardContent } from '@/components/ui/card';
@@ -156,7 +155,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ data, trainerAvatars }) => 
     return metrics;
   }, [groupedData]);
 
-  // Animation variants
+  // Animation variants with proper typing
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -173,7 +172,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ data, trainerAvatars }) => 
       opacity: 1,
       y: 0,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 100,
         staggerChildren: 0.05
       }
@@ -186,7 +185,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ data, trainerAvatars }) => 
       opacity: 1,
       y: 0,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 120
       }
     }
