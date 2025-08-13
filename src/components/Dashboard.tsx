@@ -84,7 +84,8 @@ export const trainerAvatars: Record<string, string> = {
   "Anisha Shah": "https://i.imgur.com/7GM2oPn.jpg",
   "Saniya Jaiswal": "https://i.imgur.com/EP32RoZ.jpg",
   "Vivaran Dhasmana": "https://i.imgur.com/HGrGuq9.jpg",
-  "Kajol Kanchan": "https://i.imgur.com/v9x0pFa.jpg"
+  "Kajol Kanchan": "https://i.postimg.cc/s2t4ypt9/80638-picture.jpg",
+  "Veena Narasimhan": "https://i.postimg.cc/T339c2Vm/150320-picture.jpg"
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ 
