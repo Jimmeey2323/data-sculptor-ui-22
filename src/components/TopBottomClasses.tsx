@@ -8,8 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatIndianCurrency } from './MetricsPanel';
-import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign, BarChart3, Eye } from 'lucide-react';
-import ClassDrillDownModal from './analytics/ClassDrillDownModal';
+import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react';
 
 interface TopBottomClassesProps {
   data: ProcessedData[];
@@ -19,8 +18,6 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
   const [groupByTrainer, setGroupByTrainer] = useState(false);
   const [metric, setMetric] = useState<'attendance' | 'revenue'>('attendance');
   const [displayCount, setDisplayCount] = useState(5);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [drillDownData, setDrillDownData] = useState<ProcessedData[]>([]);
 
   const getTopBottomClasses = () => {
     if (!data || data.length === 0) return { top: [], bottom: [] };
@@ -39,13 +36,11 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             totalCheckins: 0,
             totalRevenue: 0,
             totalOccurrences: 0,
-            rawData: [],
           };
         }
         acc[key].totalCheckins += Number(item.totalCheckins);
         acc[key].totalRevenue += Number(item.totalRevenue);
         acc[key].totalOccurrences += Number(item.totalOccurrences);
-        acc[key].rawData.push(item);
         
         return acc;
       }, {} as Record<string, any>);
@@ -90,14 +85,12 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             totalRevenue: 0,
             totalOccurrences: 0,
             trainers: new Set(),
-            rawData: [],
           };
         }
         acc[key].totalCheckins += Number(item.totalCheckins);
         acc[key].totalRevenue += Number(item.totalRevenue);
         acc[key].totalOccurrences += Number(item.totalOccurrences);
         acc[key].trainers.add(item.teacherName);
-        acc[key].rawData.push(item);
         
         return acc;
       }, {} as Record<string, any>);
@@ -146,11 +139,6 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
     setDisplayCount(prev => prev + 5);
   };
 
-  const handleDrillDown = (classItem: any) => {
-    setSelectedClass(classItem.cleanedClass);
-    setDrillDownData(classItem.rawData || []);
-  };
-
   const ClassCard = ({ item, index, isTop }: { item: any; index: number; isTop: boolean }) => (
     <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-background via-background to-muted/20 hover:from-primary/5 hover:to-secondary/5">
       <CardContent className="p-6">
@@ -195,7 +183,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
           </div>
         </div>
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -215,27 +203,15 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
           </Badge>
         </div>
         
-        <div className="flex items-center justify-between pt-3 border-t border-border/50">
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total check-ins:</span>
-              <span className="font-medium">{item.totalCheckins}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total revenue:</span>
-              <span className="font-medium">{formatIndianCurrency(item.totalRevenue)}</span>
-            </div>
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Total check-ins:</span>
+            <span className="font-medium">{item.totalCheckins}</span>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleDrillDown(item)}
-            className="ml-3 gap-1"
-          >
-            <BarChart3 className="h-3 w-3" />
-            <Eye className="h-3 w-3" />
-            Analytics
-          </Button>
+          <div className="flex justify-between text-xs mt-1">
+            <span className="text-muted-foreground">Total revenue:</span>
+            <span className="font-medium">{formatIndianCurrency(item.totalRevenue)}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -249,7 +225,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             Performance Analytics
           </h2>
           <p className="text-muted-foreground mt-2">
-            Discover your top and bottom performing classes with detailed drill-down analytics
+            Discover your top and bottom performing classes based on filtered data
           </p>
         </div>
         
@@ -338,16 +314,6 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
           </Button>
         </div>
       )}
-
-      <ClassDrillDownModal
-        isOpen={!!selectedClass}
-        onClose={() => {
-          setSelectedClass(null);
-          setDrillDownData([]);
-        }}
-        classData={drillDownData}
-        className={selectedClass || ''}
-      />
     </div>
   );
 };

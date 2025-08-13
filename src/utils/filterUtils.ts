@@ -1,7 +1,5 @@
 
 import { ProcessedData } from '@/types/data';
-import { DateRange } from 'react-day-picker';
-import { isWithinInterval, parseISO } from 'date-fns';
 
 export interface FilterOptions {
   searchTerm?: string;
@@ -10,23 +8,28 @@ export interface FilterOptions {
   selectedLocation?: string;
   selectedDayOfWeek?: string;
   selectedPeriod?: string;
-  dateRange?: DateRange;
-}
-
-export function getUniqueValues(data: ProcessedData[], field: keyof ProcessedData): string[] {
-  const values = data.map(item => String(item[field])).filter(Boolean);
-  return Array.from(new Set(values)).sort();
+  dateRange?: {
+    from: Date | undefined;
+    to: Date | undefined;
+  };
 }
 
 export function applyFilters(data: ProcessedData[], filters: FilterOptions): ProcessedData[] {
   if (!data || data.length === 0) return [];
-  
+
   return data.filter(item => {
-    // Search filter
+    // Search term filter
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
-      const searchableText = `${item.teacherName} ${item.cleanedClass} ${item.location}`.toLowerCase();
-      if (!searchableText.includes(searchLower)) {
+      const searchableFields = [
+        item.teacherName,
+        item.cleanedClass,
+        item.location,
+        item.dayOfWeek,
+        item.classTime
+      ].join(' ').toLowerCase();
+      
+      if (!searchableFields.includes(searchLower)) {
         return false;
       }
     }
@@ -68,32 +71,32 @@ export function applyFilters(data: ProcessedData[], filters: FilterOptions): Pro
 
     // Date range filter
     if (filters.dateRange && (filters.dateRange.from || filters.dateRange.to)) {
-      try {
-        const itemDate = parseISO(item.date);
+      if (item.date) {
+        const itemDate = new Date(item.date);
         
-        if (filters.dateRange.from && filters.dateRange.to) {
-          // Both dates specified
-          if (!isWithinInterval(itemDate, { start: filters.dateRange.from, end: filters.dateRange.to })) {
-            return false;
-          }
-        } else if (filters.dateRange.from) {
-          // Only start date specified
-          if (itemDate < filters.dateRange.from) {
-            return false;
-          }
-        } else if (filters.dateRange.to) {
-          // Only end date specified
-          if (itemDate > filters.dateRange.to) {
-            return false;
-          }
+        if (filters.dateRange.from && itemDate < filters.dateRange.from) {
+          return false;
         }
-      } catch (error) {
-        console.warn('Error parsing date for filtering:', item.date, error);
-        // If date parsing fails, exclude the item
-        return false;
+        
+        if (filters.dateRange.to && itemDate > filters.dateRange.to) {
+          return false;
+        }
       }
     }
 
     return true;
   });
+}
+
+export function getUniqueValues(data: ProcessedData[], field: keyof ProcessedData): string[] {
+  const uniqueValues = new Set<string>();
+  
+  data.forEach(item => {
+    const value = item[field];
+    if (value !== null && value !== undefined && value !== '') {
+      uniqueValues.add(String(value));
+    }
+  });
+  
+  return Array.from(uniqueValues).sort();
 }
