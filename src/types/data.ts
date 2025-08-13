@@ -23,6 +23,15 @@ export interface RawDataRow {
   'Non Paid Customers'?: string;
 }
 
+export interface ClassOccurrence {
+  date: string;
+  checkins: number;
+  revenue: number;
+  cancelled: number;
+  nonPaid: number;
+  isEmpty: boolean;
+}
+
 export interface ProcessedData {
   teacherName: string;
   teacherEmail?: string;
@@ -50,6 +59,7 @@ export interface ProcessedData {
   totalParticipants?: number | string;
   totalComps?: number | string;
   datesOccurred?: Set<string>;
+  occurrences: ClassOccurrence[]; // New field to track individual occurrences
 }
 
 export type ViewMode = 'table' | 'grid' | 'kanban' | 'timeline' | 'pivot';

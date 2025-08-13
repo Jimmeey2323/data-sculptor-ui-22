@@ -1,5 +1,5 @@
 
-import { ProcessedData, RawDataRow } from "@/types/data";
+import { ProcessedData, RawDataRow, ClassOccurrence } from "@/types/data";
 
 export function getCleanedClass(sessionName: string): string {
   // Check for specific classes first
@@ -97,7 +97,6 @@ export function processRawData(rawData: RawDataRow[]): ProcessedData[] {
   
   // Create a map to store processed data grouped by key attributes
   const processedDataMap = new Map<string, ProcessedData>();
-  const uniqueIds = new Set<string>();
 
   rawData.forEach((row, index) => {
     try {
@@ -126,40 +125,35 @@ export function processRawData(rawData: RawDataRow[]): ProcessedData[] {
       
       // Create a unique ID for this class
       const dateOnly = classDate.split(',')[0].trim();
-      const uniqueID = `${cleanedClass}-${dayOfWeek}-${classTime}-${location}-${dateOnly}`.replace(/\s+/g, '_');
       
-      // Check if we already have an aggregated record for this class
       // Include teacher name in the key to group by instructor as well
       const key = `${cleanedClass}-${dayOfWeek}-${classTime}-${location}-${teacherName}`;
       
-      console.log(`Row ${index}: Key=${key}, CheckedIn=${checkedIn}, Paid=${paid}, LateCancelled=${lateCancelled}`);
+      // Create occurrence object for this specific class instance
+      const occurrence: ClassOccurrence = {
+        date: dateOnly,
+        checkins: checkedIn,
+        revenue: paid,
+        cancelled: lateCancelled,
+        nonPaid: comp + nonPaidCustomers,
+        isEmpty: checkedIn === 0
+      };
+      
+      console.log(`Row ${index}: Key=${key}, Date=${dateOnly}, CheckedIn=${checkedIn}, Paid=${paid}`);
       
       if (processedDataMap.has(key)) {
         // Update existing record
         const existingRecord = processedDataMap.get(key)!;
-        existingRecord.totalCheckins += checkedIn;
-        existingRecord.totalCancelled += lateCancelled;
+        existingRecord.occurrences.push(occurrence);
         
-        // Convert to number before adding
-        const existingRevenue = typeof existingRecord.totalRevenue === 'number' ? 
-          existingRecord.totalRevenue : 
-          parseFloat(String(existingRecord.totalRevenue || 0));
-        
-        existingRecord.totalRevenue = existingRevenue + paid;
-        existingRecord.totalNonPaid += (comp + nonPaidCustomers);
-        
-        // For each unique class occurrence, increment totalOccurrences
-        if (!uniqueIds.has(uniqueID)) {
-          existingRecord.totalOccurrences += 1;
-          uniqueIds.add(uniqueID);
-          
-          // Update empty/non-empty class counts
-          if (checkedIn > 0) {
-            existingRecord.totalNonEmpty += 1;
-          } else {
-            existingRecord.totalEmpty += 1;
-          }
-        }
+        // Recalculate totals
+        existingRecord.totalCheckins = existingRecord.occurrences.reduce((sum, occ) => sum + occ.checkins, 0);
+        existingRecord.totalRevenue = existingRecord.occurrences.reduce((sum, occ) => sum + occ.revenue, 0);
+        existingRecord.totalCancelled = existingRecord.occurrences.reduce((sum, occ) => sum + occ.cancelled, 0);
+        existingRecord.totalNonPaid = existingRecord.occurrences.reduce((sum, occ) => sum + occ.nonPaid, 0);
+        existingRecord.totalOccurrences = existingRecord.occurrences.length;
+        existingRecord.totalEmpty = existingRecord.occurrences.filter(occ => occ.isEmpty).length;
+        existingRecord.totalNonEmpty = existingRecord.occurrences.filter(occ => !occ.isEmpty).length;
       } else {
         // Create new record
         const newRecord: ProcessedData = {
@@ -176,16 +170,16 @@ export function processRawData(rawData: RawDataRow[]): ProcessedData[] {
           totalOccurrences: 1,
           totalRevenue: paid,
           totalCancelled: lateCancelled,
-          totalEmpty: checkedIn > 0 ? 0 : 1,
+          totalEmpty: checkedIn === 0 ? 1 : 0,
           totalNonEmpty: checkedIn > 0 ? 1 : 0,
           totalNonPaid: comp + nonPaidCustomers,
           classAverageIncludingEmpty: 0, // Will calculate later
           classAverageExcludingEmpty: 0, // Will calculate later
-          uniqueID
+          uniqueID: `${cleanedClass}-${dayOfWeek}-${classTime}-${location}-${dateOnly}`.replace(/\s+/g, '_'),
+          occurrences: [occurrence]
         };
         
         processedDataMap.set(key, newRecord);
-        uniqueIds.add(uniqueID);
       }
     } catch (error) {
       console.error(`Error processing row ${index}:`, error, 'Row data:', JSON.stringify(row));
@@ -218,4 +212,50 @@ export function processRawData(rawData: RawDataRow[]): ProcessedData[] {
   });
   
   return processedData;
+}
+
+// Helper function to recompute ProcessedData based on filtered occurrences
+export function recomputeProcessedData(item: ProcessedData, filteredOccurrences: ClassOccurrence[]): ProcessedData {
+  if (filteredOccurrences.length === 0) {
+    return {
+      ...item,
+      totalCheckins: 0,
+      totalOccurrences: 0,
+      totalRevenue: 0,
+      totalCancelled: 0,
+      totalEmpty: 0,
+      totalNonEmpty: 0,
+      totalNonPaid: 0,
+      classAverageIncludingEmpty: 'N/A',
+      classAverageExcludingEmpty: 'N/A',
+      occurrences: filteredOccurrences
+    };
+  }
+
+  const totalCheckins = filteredOccurrences.reduce((sum, occ) => sum + occ.checkins, 0);
+  const totalRevenue = filteredOccurrences.reduce((sum, occ) => sum + occ.revenue, 0);
+  const totalCancelled = filteredOccurrences.reduce((sum, occ) => sum + occ.cancelled, 0);
+  const totalNonPaid = filteredOccurrences.reduce((sum, occ) => sum + occ.nonPaid, 0);
+  const totalEmpty = filteredOccurrences.filter(occ => occ.isEmpty).length;
+  const totalNonEmpty = filteredOccurrences.filter(occ => !occ.isEmpty).length;
+  const totalOccurrences = filteredOccurrences.length;
+
+  const classAverageIncludingEmpty = totalOccurrences > 0 ? 
+    Number((totalCheckins / totalOccurrences).toFixed(1)) : 'N/A';
+  const classAverageExcludingEmpty = totalNonEmpty > 0 ? 
+    Number((totalCheckins / totalNonEmpty).toFixed(1)) : 'N/A';
+
+  return {
+    ...item,
+    totalCheckins,
+    totalOccurrences,
+    totalRevenue,
+    totalCancelled,
+    totalEmpty,
+    totalNonEmpty,
+    totalNonPaid,
+    classAverageIncludingEmpty,
+    classAverageExcludingEmpty,
+    occurrences: filteredOccurrences
+  };
 }

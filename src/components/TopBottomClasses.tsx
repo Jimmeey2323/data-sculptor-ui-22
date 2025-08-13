@@ -9,29 +9,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatIndianCurrency } from './MetricsPanel';
 import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react';
-import { FilterOptions, applyFilters } from '@/utils/filterUtils';
 
 interface TopBottomClassesProps {
   data: ProcessedData[];
-  filters: FilterOptions;
 }
 
-const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) => {
+const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
   const [groupByTrainer, setGroupByTrainer] = useState(false);
   const [metric, setMetric] = useState<'attendance' | 'revenue'>('attendance');
   const [displayCount, setDisplayCount] = useState(5);
 
-  // Apply filters to the data first
-  const filteredData = useMemo(() => {
-    return applyFilters(data, filters);
-  }, [data, filters]);
-
   const getTopBottomClasses = () => {
-    if (!filteredData || filteredData.length === 0) return { top: [], bottom: [] };
+    if (!data || data.length === 0) return { top: [], bottom: [] };
 
     if (groupByTrainer) {
-      // Group by trainer and class type
-      const grouped = filteredData.reduce((acc, item) => {
+      // Group by trainer and class type - data is already filtered from Dashboard
+      const grouped = data.reduce((acc, item) => {
         const key = `${item.teacherName}-${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
         if (!acc[key]) {
           acc[key] = {
@@ -61,7 +54,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
       const validClasses = classes.filter(item => {
         return !item.cleanedClass.toLowerCase().includes('hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 2; // Changed from 1 to 2
+               item.totalOccurrences >= 2;
       });
 
       return {
@@ -79,8 +72,8 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
           .slice(0, displayCount)
       };
     } else {
-      // Group by class type, day, time and location
-      const grouped = filteredData.reduce((acc, item) => {
+      // Group by class type, day, time and location - data is already filtered from Dashboard
+      const grouped = data.reduce((acc, item) => {
         const key = `${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
         if (!acc[key]) {
           acc[key] = {
@@ -112,7 +105,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
       const validClasses = classes.filter(item => {
         return !item.cleanedClass.toLowerCase().includes('hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 2; // Changed from 1 to 2
+               item.totalOccurrences >= 2;
       });
 
       return {
@@ -134,14 +127,14 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
 
   const { top, bottom } = getTopBottomClasses();
   const hasMoreData = useMemo(() => {
-    const totalFilteredClasses = filteredData.filter(item => 
+    const totalFilteredClasses = data.filter(item => 
       !item.cleanedClass.toLowerCase().includes('hosted') && 
       !item.cleanedClass.includes('Recovery') &&
       Number(item.totalOccurrences) >= 2
     ).length;
     
     return totalFilteredClasses > displayCount;
-  }, [filteredData, displayCount]);
+  }, [data, displayCount]);
 
   const handleShowMore = () => {
     setDisplayCount(prev => prev + 5);

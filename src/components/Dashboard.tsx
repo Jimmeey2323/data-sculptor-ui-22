@@ -20,6 +20,7 @@ import { DateRange } from '@/components/DateRangePicker';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { exportToCSV } from '@/utils/fileProcessing';
+import { applyFilters, FilterOptions } from '@/utils/filterUtils';
 import { 
   Upload, 
   BarChart3, 
@@ -108,37 +109,25 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [savedPivotConfigs, setSavedPivotConfigs] = useState<any[]>([]);
   const [showPivotConfig, setShowPivotConfig] = useState(false);
 
-  // Apply filters effect
+  // Apply filters effect using centralized filtering
   useEffect(() => {
     if (!data.length) return;
 
-    let result = [...data];
+    // Convert current filters to FilterOptions format
+    const filterOptions: FilterOptions = {
+      searchTerm: searchQuery || undefined,
+      selectedTrainer: filters.find(f => f.field === 'teacherName')?.value || 'all',
+      selectedClass: filters.find(f => f.field === 'cleanedClass')?.value || 'all',
+      selectedLocation: filters.find(f => f.field === 'location')?.value || 'all',
+      selectedDayOfWeek: filters.find(f => f.field === 'dayOfWeek')?.value || 'all',
+      selectedPeriod: filters.find(f => f.field === 'period')?.value || 'all',
+      dateRange: dateRange ? { from: dateRange.from, to: dateRange.to } : undefined,
+    };
 
-    // Apply date range filter if set
-    if (dateRange && dateRange.from) {
-      result = result.filter(item => {
-        const itemDate = new Date(item.date);
-        if (dateRange.from && itemDate < dateRange.from) {
-          return false;
-        }
-        if (dateRange.to && itemDate > dateRange.to) {
-          return false;
-        }
-        return true;
-      });
-    }
+    // Apply filters using the centralized utility
+    let result = applyFilters(data, filterOptions);
 
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(item => 
-        Object.values(item).some(value => 
-          String(value).toLowerCase().includes(query)
-        )
-      );
-    }
-
-    // Apply other filters
+    // Apply additional legacy filters for compatibility
     if (filters.length > 0) {
       result = result.filter(item => {
         return filters.every(filter => {
@@ -200,6 +189,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       });
     }
     
+    console.log(`Filtered data: ${result.length} items from ${data.length} original items`);
     setFilteredData(result);
   }, [data, filters, sortOptions, searchQuery, dateRange]);
 
@@ -412,18 +402,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <Card className="lg:col-span-3 border-[#E0E6F0] rounded-xl shadow-sm">
             <CardContent className="p-6">
-              <TopBottomClasses 
-                data={filteredData} 
-                filters={{
-                  searchTerm: searchQuery,
-                  selectedTrainer: filters.find(f => f.field === 'teacherName')?.value || 'all',
-                  selectedClass: filters.find(f => f.field === 'cleanedClass')?.value || 'all',
-                  selectedLocation: filters.find(f => f.field === 'location')?.value || 'all',
-                  selectedDayOfWeek: filters.find(f => f.field === 'dayOfWeek')?.value || 'all',
-                  selectedPeriod: filters.find(f => f.field === 'period')?.value || 'all',
-                  dateRange: dateRange ? { from: dateRange.from, to: dateRange.to } : undefined,
-                }}
-              />
+              <TopBottomClasses data={filteredData} />
             </CardContent>
           </Card>
         </div>
@@ -496,7 +475,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 
                 <CollapsibleContent>
                   <div className="p-4 border-b bg-gray-50 dark:bg-gray-800">
-                    {/* Table-specific filters will go here */}
                     <p className="text-sm text-muted-foreground">Table-specific filters coming soon...</p>
                   </div>
                 </CollapsibleContent>
