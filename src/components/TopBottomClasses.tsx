@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ProcessedData } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,9 +59,9 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
 
       // Filter out classes that don't meet criteria
       const validClasses = classes.filter(item => {
-        return !item.cleanedClass.includes('Hosted') && 
+        return !item.cleanedClass.toLowerCase().includes('hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 1;
+               item.totalOccurrences >= 2; // Changed from 1 to 2
       });
 
       return {
@@ -109,9 +110,9 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
 
       // Filter out classes that don't meet criteria
       const validClasses = classes.filter(item => {
-        return !item.cleanedClass.includes('Hosted') && 
+        return !item.cleanedClass.toLowerCase().includes('hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 1;
+               item.totalOccurrences >= 2; // Changed from 1 to 2
       });
 
       return {
@@ -134,8 +135,9 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
   const { top, bottom } = getTopBottomClasses();
   const hasMoreData = useMemo(() => {
     const totalFilteredClasses = filteredData.filter(item => 
-      !item.cleanedClass.includes('Hosted') && 
-      !item.cleanedClass.includes('Recovery')
+      !item.cleanedClass.toLowerCase().includes('hosted') && 
+      !item.cleanedClass.includes('Recovery') &&
+      Number(item.totalOccurrences) >= 2
     ).length;
     
     return totalFilteredClasses > displayCount;
@@ -231,7 +233,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
             Performance Analytics
           </h2>
           <p className="text-muted-foreground mt-2">
-            Discover your top and bottom performing classes based on filtered data
+            Discover your top and bottom performing classes based on filtered data (minimum 2 classes)
           </p>
         </div>
         
@@ -280,7 +282,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
             )) : (
               <div className="p-8 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the applied filters</p>
+                <p>No classes found matching the applied filters (minimum 2 occurrences required)</p>
               </div>
             )}
           </CardContent>
@@ -302,7 +304,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) =>
             )) : (
               <div className="p-8 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the applied filters</p>
+                <p>No classes found matching the applied filters (minimum 2 occurrences required)</p>
               </div>
             )}
           </CardContent>
