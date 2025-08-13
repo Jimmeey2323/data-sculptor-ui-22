@@ -107,7 +107,7 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
         ...item,
         key: `flat-${data.indexOf(item)}`,
         isChild: true,
-        // Override totalOccurrences to 1 for flat view
+        // Set totalOccurrences to 1 for flat view
         totalOccurrences: 1
       }));
     }
@@ -141,9 +141,13 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
       }
       
       // Add to children array
-      groups[groupKey].children.push(item);
+      groups[groupKey].children.push({
+        ...item,
+        // Individual rows in grouped view should show 1 for totalOccurrences
+        totalOccurrences: 1
+      });
       
-      // Update metrics
+      // Update metrics - sum up the original totalOccurrences for the group
       groups[groupKey].totalCheckins += Number(item.totalCheckins);
       groups[groupKey].totalRevenue += Number(item.totalRevenue);
       groups[groupKey].totalOccurrences += Number(item.totalOccurrences);
@@ -612,10 +616,7 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                 paginatedGroups.map((group: any) => (
                   <React.Fragment key={group.key}>
                     {/* Parent row */}
-                    <motion.tr 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
+                    <TableRow 
                       className={cn(
                         "cursor-pointer hover:bg-muted/50",
                         expandedRows[group.key] && "bg-muted/30"
@@ -690,7 +691,7 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
                           </TableCell>
                         );
                       })}
-                    </motion.tr>
+                    </TableRow>
                     
                     {/* Child rows */}
                     {group.children && expandedRows[group.key] && (
