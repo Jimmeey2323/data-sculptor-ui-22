@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ProcessedData } from '@/types/data';
 import { 
@@ -107,7 +106,9 @@ export function DataTable({ data, trainerAvatars }: DataTableProps) {
       return data.map(item => ({
         ...item,
         key: `flat-${data.indexOf(item)}`,
-        isChild: true
+        isChild: true,
+        // Override totalOccurrences to 1 for flat view
+        totalOccurrences: 1
       }));
     }
     

@@ -1,296 +1,182 @@
-
-import React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React, { useState } from 'react';
+import { Search, Filter, X, Calendar, MapPin, User, Clock, ListChecks } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ProcessedData } from '@/types/data';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { FilterOptions, getUniqueValues } from '@/utils/filterUtils';
-import { Search, Filter, X, Calendar, Users, MapPin, Clock, BookOpen, RotateCcw } from 'lucide-react';
-import { DatePickerWithRange } from './DateRangePicker';
+import { ProcessedData } from '@/types/data';
 
 interface EnhancedDataFiltersProps {
   data: ProcessedData[];
-  filters: FilterOptions;
-  onFiltersChange: (filters: FilterOptions) => void;
+  onApplyFilters: (filters: FilterOptions) => void;
 }
 
-const EnhancedDataFilters: React.FC<EnhancedDataFiltersProps> = ({
-  data,
-  filters,
-  onFiltersChange,
-}) => {
+const EnhancedDataFilters: React.FC<EnhancedDataFiltersProps> = ({ data, onApplyFilters }) => {
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedTrainer, setSelectedTrainer] = useState<string>('all');
+  const [selectedClass, setSelectedClass] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<string>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+
   const trainers = getUniqueValues(data, 'teacherName');
   const classes = getUniqueValues(data, 'cleanedClass');
   const locations = getUniqueValues(data, 'location');
   const daysOfWeek = getUniqueValues(data, 'dayOfWeek');
   const periods = getUniqueValues(data, 'period');
 
-  const updateFilter = (key: keyof FilterOptions, value: any) => {
-    onFiltersChange({
-      ...filters,
-      [key]: value,
-    });
+  const handleApplyFilters = () => {
+    const filters: FilterOptions = {
+      searchTerm,
+      selectedTrainer,
+      selectedClass,
+      selectedLocation,
+      selectedDayOfWeek,
+      selectedPeriod,
+      dateRange,
+    };
+    onApplyFilters(filters);
+    setIsFilterOpen(false);
   };
 
-  const clearAllFilters = () => {
-    onFiltersChange({});
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setSelectedTrainer('all');
+    setSelectedClass('all');
+    setSelectedLocation('all');
+    setSelectedDayOfWeek('all');
+    setSelectedPeriod('all');
+    setDateRange({ from: undefined, to: undefined });
+    
+    const emptyFilters: FilterOptions = {};
+    onApplyFilters(emptyFilters);
   };
-
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (filters.searchTerm) count++;
-    if (filters.selectedTrainer && filters.selectedTrainer !== 'all') count++;
-    if (filters.selectedClass && filters.selectedClass !== 'all') count++;
-    if (filters.selectedLocation && filters.selectedLocation !== 'all') count++;
-    if (filters.selectedDayOfWeek && filters.selectedDayOfWeek !== 'all') count++;
-    if (filters.selectedPeriod && filters.selectedPeriod !== 'all') count++;
-    if (filters.dateRange && (filters.dateRange.from || filters.dateRange.to)) count++;
-    return count;
-  };
-
-  const activeFilterCount = getActiveFilterCount();
 
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-r from-background via-background to-muted/20">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Filter className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Advanced Filters</h3>
-              <p className="text-sm text-muted-foreground">
-                Refine your data analysis with precise filtering
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="bg-primary/10 text-primary">
-                {activeFilterCount} active filter{activeFilterCount > 1 ? 's' : ''}
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearAllFilters}
-              className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Clear All
+    <Card className="w-full">
+      <CardContent className="p-6 flex items-center space-x-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <span>Filters</span>
+              {isFilterOpen && <X className="h-4 w-4 ml-auto" />}
             </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Search */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <Search className="h-4 w-4" />
-              Search
-            </Label>
-            <div className="relative">
-              <Input
-                placeholder="Search classes, trainers..."
-                value={filters.searchTerm || ''}
-                onChange={(e) => updateFilter('searchTerm', e.target.value)}
-                className="pl-9"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          </PopoverTrigger>
+          <PopoverContent className="w-80 md:w-96 p-6 space-y-4" align="end">
+            <h4 className="text-sm font-medium">Filter Options</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Select value={selectedTrainer} onValueChange={setSelectedTrainer}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Trainer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Trainers</SelectItem>
+                    {trainers.map((trainer) => (
+                      <SelectItem key={trainer} value={trainer}>{trainer}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Classes</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {locations.map((location) => (
+                      <SelectItem key={location} value={location}>{location}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Select value={selectedDayOfWeek} onValueChange={setSelectedDayOfWeek}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Days</SelectItem>
+                    {daysOfWeek.map((day) => (
+                      <SelectItem key={day} value={day}>{day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Periods</SelectItem>
+                    {periods.map((period) => (
+                      <SelectItem key={period} value={period}>{period}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-
-          {/* Trainer */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <Users className="h-4 w-4" />
-              Trainer
-            </Label>
-            <Select
-              value={filters.selectedTrainer || 'all'}
-              onValueChange={(value) => updateFilter('selectedTrainer', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All trainers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All trainers</SelectItem>
-                {trainers.map((trainer) => (
-                  <SelectItem key={trainer} value={trainer}>
-                    {trainer}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Class Type */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <BookOpen className="h-4 w-4" />
-              Class Type
-            </Label>
-            <Select
-              value={filters.selectedClass || 'all'}
-              onValueChange={(value) => updateFilter('selectedClass', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All classes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All classes</SelectItem>
-                {classes.map((classType) => (
-                  <SelectItem key={classType} value={classType}>
-                    {classType}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Location */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <MapPin className="h-4 w-4" />
-              Location
-            </Label>
-            <Select
-              value={filters.selectedLocation || 'all'}
-              onValueChange={(value) => updateFilter('selectedLocation', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All locations" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All locations</SelectItem>
-                {locations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Day of Week */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <Clock className="h-4 w-4" />
-              Day of Week
-            </Label>
-            <Select
-              value={filters.selectedDayOfWeek || 'all'}
-              onValueChange={(value) => updateFilter('selectedDayOfWeek', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All days" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All days</SelectItem>
-                {daysOfWeek.map((day) => (
-                  <SelectItem key={day} value={day}>
-                    {day}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Period */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4" />
-              Period
-            </Label>
-            <Select
-              value={filters.selectedPeriod || 'all'}
-              onValueChange={(value) => updateFilter('selectedPeriod', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All periods" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All periods</SelectItem>
-                {periods.map((period) => (
-                  <SelectItem key={period} value={period}>
-                    {period}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date Range */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4" />
-              Date Range
-            </Label>
-            <DatePickerWithRange
-              date={filters.dateRange}
-              setDate={(dateRange) => updateFilter('dateRange', dateRange)}
-            />
-          </div>
-        </div>
-
-        {/* Active Filters Display */}
-        {activeFilterCount > 0 && (
-          <div className="mt-4 pt-4 border-t border-border/50">
-            <div className="flex flex-wrap gap-2">
-              {filters.searchTerm && (
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                  Search: {filters.searchTerm}
-                  <button
-                    onClick={() => updateFilter('searchTerm', '')}
-                    className="ml-2 hover:bg-primary/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.selectedTrainer && filters.selectedTrainer !== 'all' && (
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                  Trainer: {filters.selectedTrainer}
-                  <button
-                    onClick={() => updateFilter('selectedTrainer', 'all')}
-                    className="ml-2 hover:bg-primary/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.selectedClass && filters.selectedClass !== 'all' && (
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                  Class: {filters.selectedClass}
-                  <button
-                    onClick={() => updateFilter('selectedClass', 'all')}
-                    className="ml-2 hover:bg-primary/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.selectedLocation && filters.selectedLocation !== 'all' && (
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                  Location: {filters.selectedLocation}
-                  <button
-                    onClick={() => updateFilter('selectedLocation', 'all')}
-                    className="ml-2 hover:bg-primary/20 rounded-full p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
+            
+            <div>
+              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
             </div>
-          </div>
-        )}
+
+            <div className="flex justify-between">
+              <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                Clear Filters
+              </Button>
+              <div>
+                <Button variant="secondary" size="sm" onClick={() => setIsFilterOpen(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleApplyFilters}>
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </CardContent>
     </Card>
   );

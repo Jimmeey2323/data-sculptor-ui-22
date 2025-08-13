@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessedData } from '@/types/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,22 +8,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatIndianCurrency } from './MetricsPanel';
 import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react';
+import { FilterOptions, applyFilters } from '@/utils/filterUtils';
 
 interface TopBottomClassesProps {
   data: ProcessedData[];
+  filters: FilterOptions;
 }
 
-const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
+const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data, filters }) => {
   const [groupByTrainer, setGroupByTrainer] = useState(false);
   const [metric, setMetric] = useState<'attendance' | 'revenue'>('attendance');
   const [displayCount, setDisplayCount] = useState(5);
 
+  // Apply filters to the data first
+  const filteredData = useMemo(() => {
+    return applyFilters(data, filters);
+  }, [data, filters]);
+
   const getTopBottomClasses = () => {
-    if (!data || data.length === 0) return { top: [], bottom: [] };
+    if (!filteredData || filteredData.length === 0) return { top: [], bottom: [] };
 
     if (groupByTrainer) {
       // Group by trainer and class type
-      const grouped = data.reduce((acc, item) => {
+      const grouped = filteredData.reduce((acc, item) => {
         const key = `${item.teacherName}-${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
         if (!acc[key]) {
           acc[key] = {
@@ -51,20 +57,20 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
       }));
 
       // Filter out classes that don't meet criteria
-      const filteredClasses = classes.filter(item => {
+      const validClasses = classes.filter(item => {
         return !item.cleanedClass.includes('Hosted') && 
                !item.cleanedClass.includes('Recovery') && 
                item.totalOccurrences >= 1;
       });
 
       return {
-        top: filteredClasses
+        top: validClasses
           .sort((a, b) => metric === 'attendance' 
             ? b.average - a.average 
             : b.totalRevenue - a.totalRevenue
           )
           .slice(0, displayCount),
-        bottom: filteredClasses
+        bottom: validClasses
           .sort((a, b) => metric === 'attendance'
             ? a.average - b.average
             : a.totalRevenue - b.totalRevenue
@@ -73,7 +79,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
       };
     } else {
       // Group by class type, day, time and location
-      const grouped = data.reduce((acc, item) => {
+      const grouped = filteredData.reduce((acc, item) => {
         const key = `${item.cleanedClass}-${item.dayOfWeek}-${item.classTime}-${item.location}`;
         if (!acc[key]) {
           acc[key] = {
@@ -102,20 +108,20 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
       }));
 
       // Filter out classes that don't meet criteria
-      const filteredClasses = classes.filter(item => {
+      const validClasses = classes.filter(item => {
         return !item.cleanedClass.includes('Hosted') && 
                !item.cleanedClass.includes('Recovery') && 
                item.totalOccurrences >= 1;
       });
 
       return {
-        top: filteredClasses
+        top: validClasses
           .sort((a, b) => metric === 'attendance'
             ? b.average - a.average
             : b.totalRevenue - a.totalRevenue
           )
           .slice(0, displayCount),
-        bottom: filteredClasses
+        bottom: validClasses
           .sort((a, b) => metric === 'attendance'
             ? a.average - b.average
             : a.totalRevenue - b.totalRevenue
@@ -127,13 +133,13 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
 
   const { top, bottom } = getTopBottomClasses();
   const hasMoreData = useMemo(() => {
-    const totalFilteredClasses = data.filter(item => 
+    const totalFilteredClasses = filteredData.filter(item => 
       !item.cleanedClass.includes('Hosted') && 
       !item.cleanedClass.includes('Recovery')
     ).length;
     
     return totalFilteredClasses > displayCount;
-  }, [data, displayCount]);
+  }, [filteredData, displayCount]);
 
   const handleShowMore = () => {
     setDisplayCount(prev => prev + 5);
@@ -274,7 +280,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             )) : (
               <div className="p-8 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the criteria</p>
+                <p>No classes found matching the applied filters</p>
               </div>
             )}
           </CardContent>
@@ -296,7 +302,7 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             )) : (
               <div className="p-8 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No classes found matching the criteria</p>
+                <p>No classes found matching the applied filters</p>
               </div>
             )}
           </CardContent>
