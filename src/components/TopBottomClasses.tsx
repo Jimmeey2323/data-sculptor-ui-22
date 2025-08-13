@@ -1,13 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
 import { ProcessedData } from '@/types/data';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatIndianCurrency } from './MetricsPanel';
-import { Calendar, Clock, MapPin, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, MapPin, ChevronDown, TrendingUp, TrendingDown, Users, DollarSign } from 'lucide-react';
 
 interface TopBottomClassesProps {
   data: ProcessedData[];
@@ -35,8 +36,6 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
             totalCheckins: 0,
             totalRevenue: 0,
             totalOccurrences: 0,
-            classAverageIncludingEmpty: 0,
-            classAverageExcludingEmpty: 0
           };
         }
         acc[key].totalCheckins += Number(item.totalCheckins);
@@ -49,15 +48,13 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
       const classes = Object.values(grouped).map(item => ({
         ...item,
         average: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-        classAverageIncludingEmpty: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-        classAverageExcludingEmpty: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0
       }));
 
       // Filter out classes that don't meet criteria
       const filteredClasses = classes.filter(item => {
         return !item.cleanedClass.includes('Hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 2;
+               item.totalOccurrences >= 1;
       });
 
       return {
@@ -102,15 +99,13 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
         ...item,
         trainers: Array.from(item.trainers),
         average: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-        classAverageIncludingEmpty: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0,
-        classAverageExcludingEmpty: item.totalOccurrences > 0 ? item.totalCheckins / item.totalOccurrences : 0
       }));
 
       // Filter out classes that don't meet criteria
       const filteredClasses = classes.filter(item => {
         return !item.cleanedClass.includes('Hosted') && 
                !item.cleanedClass.includes('Recovery') && 
-               item.totalOccurrences >= 2;
+               item.totalOccurrences >= 1;
       });
 
       return {
@@ -144,191 +139,181 @@ const TopBottomClasses: React.FC<TopBottomClassesProps> = ({ data }) => {
     setDisplayCount(prev => prev + 5);
   };
 
+  const ClassCard = ({ item, index, isTop }: { item: any; index: number; isTop: boolean }) => (
+    <Card className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-to-br from-background via-background to-muted/20 hover:from-primary/5 hover:to-secondary/5">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg ${
+              isTop 
+                ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg' 
+                : 'bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg'
+            }`}>
+              {isTop ? index + 1 : displayCount - index}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
+                {item.cleanedClass}
+              </h3>
+              {groupByTrainer ? (
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Users className="h-3 w-3" />
+                  {item.teacherName}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Users className="h-3 w-3" />
+                  {Array.isArray(item.trainers) 
+                    ? `${item.trainers.length} trainer${item.trainers.length > 1 ? 's' : ''}` 
+                    : ''}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className={`text-2xl font-bold ${isTop ? 'text-emerald-600' : 'text-orange-600'}`}>
+              {metric === 'attendance' 
+                ? item.average.toFixed(1)
+                : formatIndianCurrency(item.totalRevenue)
+              }
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {metric === 'attendance' ? 'Avg. Attendance' : 'Total Revenue'}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {item.dayOfWeek}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {item.classTime}
+            </span>
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {item.location}
+            </span>
+          </div>
+          <Badge variant="secondary" className="font-medium">
+            {item.totalOccurrences} classes
+          </Badge>
+        </div>
+        
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Total check-ins:</span>
+            <span className="font-medium">{item.totalCheckins}</span>
+          </div>
+          <div className="flex justify-between text-xs mt-1">
+            <span className="text-muted-foreground">Total revenue:</span>
+            <span className="font-medium">{formatIndianCurrency(item.totalRevenue)}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold">Top & Bottom Classes</h2>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center space-x-2">
+    <div className="space-y-8">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Performance Analytics
+          </h2>
+          <p className="text-muted-foreground mt-2">
+            Discover your top and bottom performing classes based on filtered data
+          </p>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex items-center space-x-3">
             <Switch
               checked={groupByTrainer}
               onCheckedChange={setGroupByTrainer}
               id="trainer-switch"
+              className="data-[state=checked]:bg-primary"
             />
-            <Label htmlFor="trainer-switch">Group by Trainer</Label>
+            <Label htmlFor="trainer-switch" className="font-medium">
+              Group by Trainer
+            </Label>
           </div>
-          <Tabs defaultValue="attendance" className="w-[400px]">
-            <TabsList>
-              <TabsTrigger 
-                value="attendance" 
-                onClick={() => setMetric('attendance')}
-              >
-                By Attendance
+          
+          <Tabs value={metric} onValueChange={(value) => setMetric(value as 'attendance' | 'revenue')} className="w-auto">
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="attendance" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Attendance
               </TabsTrigger>
-              <TabsTrigger 
-                value="revenue" 
-                onClick={() => setMetric('revenue')}
-              >
-                By Revenue
+              <TabsTrigger value="revenue" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Revenue
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top Classes */}
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Top {displayCount} Classes</h3>
-            <div className="space-y-4">
-              {top.length > 0 ? top.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 w-8">
-                      #{index + 1}
-                    </span>
-                    <div className="space-y-1">
-                      <p className="font-medium">{item.cleanedClass}</p>
-                      {groupByTrainer ? (
-                        <p className="text-sm text-muted-foreground">{item.teacherName}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {Array.isArray(item.trainers) 
-                            ? `${item.trainers.length} trainer${item.trainers.length > 1 ? 's' : ''}` 
-                            : ''}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {item.dayOfWeek}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {item.classTime}
-                        </span>
-                        <span>{item.totalOccurrences} classes</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-lg font-semibold">
-                      {metric === 'attendance' 
-                        ? item.average.toFixed(1)
-                        : formatIndianCurrency(item.totalRevenue)
-                      }
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {metric === 'attendance' ? 'Avg. Attendance' : 'Total Revenue'}
-                    </p>
-                    <div className="text-xs flex justify-end gap-2">
-                      <span>Total check-ins: {item.totalCheckins}</span>
-                      <span>|</span>
-                      <span>
-                        Avg (incl. empty): {typeof item.classAverageIncludingEmpty === 'number' 
-                          ? item.classAverageIncludingEmpty.toFixed(1) 
-                          : item.classAverageIncludingEmpty}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  No classes found matching the criteria
-                </div>
-              )}
-            </div>
-            {hasMoreData && (
-              <div className="mt-4 text-center">
-                <Button 
-                  variant="outline" 
-                  onClick={handleShowMore}
-                  className="text-sm"
-                >
-                  Show More <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Top Performers */}
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-emerald-50 via-background to-green-50/50 dark:from-emerald-950/20 dark:via-background dark:to-green-950/10">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-emerald-700 dark:text-emerald-400">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/50 rounded-lg">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              Top {displayCount} Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {top.length > 0 ? top.map((item, index) => (
+              <ClassCard key={index} item={item} index={index} isTop={true} />
+            )) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No classes found matching the criteria</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Bottom Classes */}
-        <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Bottom {displayCount} Classes</h3>
-            <div className="space-y-4">
-              {bottom.length > 0 ? bottom.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-red-500 dark:text-red-400 w-8">
-                      #{displayCount - index}
-                    </span>
-                    <div className="space-y-1">
-                      <p className="font-medium">{item.cleanedClass}</p>
-                      {groupByTrainer ? (
-                        <p className="text-sm text-muted-foreground">{item.teacherName}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {Array.isArray(item.trainers) 
-                            ? `${item.trainers.length} trainer${item.trainers.length > 1 ? 's' : ''}` 
-                            : ''}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {item.dayOfWeek}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {item.classTime}
-                        </span>
-                        <span>{item.totalOccurrences} classes</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-lg font-semibold">
-                      {metric === 'attendance'
-                        ? item.average.toFixed(1)
-                        : formatIndianCurrency(item.totalRevenue)
-                      }
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {metric === 'attendance' ? 'Avg. Attendance' : 'Total Revenue'}
-                    </p>
-                    <div className="text-xs flex justify-end gap-2">
-                      <span>Total check-ins: {item.totalCheckins}</span>
-                      <span>|</span>
-                      <span>
-                        Avg (incl. empty): {typeof item.classAverageIncludingEmpty === 'number' 
-                          ? item.classAverageIncludingEmpty.toFixed(1) 
-                          : item.classAverageIncludingEmpty}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  No classes found matching the criteria
-                </div>
-              )}
-            </div>
-            {hasMoreData && (
-              <div className="mt-4 text-center">
-                <Button 
-                  variant="outline" 
-                  onClick={handleShowMore}
-                  className="text-sm"
-                >
-                  Show More <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
+        {/* Bottom Performers */}
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-orange-50 via-background to-red-50/50 dark:from-orange-950/20 dark:via-background dark:to-red-950/10">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-orange-700 dark:text-orange-400">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-lg">
+                <TrendingDown className="h-5 w-5" />
+              </div>
+              Bottom {displayCount} Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {bottom.length > 0 ? bottom.map((item, index) => (
+              <ClassCard key={index} item={item} index={index} isTop={false} />
+            )) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No classes found matching the criteria</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {hasMoreData && (
+        <div className="text-center">
+          <Button 
+            variant="outline" 
+            onClick={handleShowMore}
+            className="bg-background/80 backdrop-blur-sm hover:bg-primary/5 border-primary/20 hover:border-primary/40 transition-all duration-300"
+          >
+            Show More Classes <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
